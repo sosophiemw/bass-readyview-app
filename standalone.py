@@ -1,4 +1,6 @@
 import tkinter
+from tkinter import filedialog
+import time
 import cv2
 import PIL.Image, PIL.ImageTk
 import numpy as np
@@ -54,8 +56,11 @@ class App:
         self.slider=tkinter.Scale(window,from_=2000, to=10000, orient='horizontal',resolution=500,variable=TEMP_VARIABLE)
         self.slider.set(6500)
 
+        self.SNAPSHOT_BUTTON=tkinter.Button(window, text='Take Snapshot', command=self.take_snapshot);
+
         self.LABEL.pack()
         self.DROPDOWN.pack()
+        self.SNAPSHOT_BUTTON.pack()
         self.TEMP_LABEL.pack()
         self.slider.pack()
 
@@ -78,14 +83,22 @@ class App:
             index += 1
             i -= 1
         return arr
-    
+
+    def take_snapshot(self):
+        global SNAPSHOT
+        global DIRECTORY_NAME
+        if DIRECTORY_NAME==None:
+            DIRECTORY_NAME=filedialog.askdirectory()
+        SNAPSHOT = True;
+
+
     def update(self):
         #Get a frame from the video source
         ret, frame=self.vid.get_frame()
 
         if ret:
             self.image=PIL.Image.fromarray(frame.astype(np.uint8))
-            self.resized_image=self.image.resize([int(self.image.size[0]*1.4),int(self.image.size[1]*1.4)])
+            self.resized_image=self.image.resize([int(self.image.size[0]*1.3),int(self.image.size[1]*1.3)])
             self.photo = PIL.ImageTk.PhotoImage(image = self.resized_image)
             self.canvas.config(width=self.resized_image.size[0], height=self.resized_image.size[1])
             self.canvas.itemconfigure(self.photo_id, image=self.photo)
@@ -113,6 +126,7 @@ class MyVideoCapture:
         global KELVIN_TABLE;
         global TEMP_VARIABLE;
         global CAMERA_INDEX;
+        global SNAPSHOT;
 
         if(int(CAMERA_INDEX.get())!=self.vid_source):
             self.vid_source=int(CAMERA_INDEX.get())
@@ -139,6 +153,14 @@ class MyVideoCapture:
                 frame[:, :640, 0] *= mod_weight_array[0]
                 frame[:, :640, 1] *= mod_weight_array[1]
                 frame[:, :640, 2] *= mod_weight_array[2]
+
+                if SNAPSHOT:
+                    timestr = time.strftime("%Y%m%d-%H%M%S")
+                    print(timestr)
+                    cv2.imwrite(DIRECTORY_NAME+'/'+timestr+'.png', frame)
+                    SNAPSHOT = False
+
+
                 frame = np.flip(frame, axis=2)
                 return (ret, frame);
             else:
