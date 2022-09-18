@@ -36,33 +36,45 @@ class App:
 
         self.window = window
         self.window.title(window_title)
+        self.window.minsize(700,600)
         self.OPTIONS=self.returnCameraIndexes()
         CAMERA_INDEX=tkinter.StringVar()
         CAMERA_INDEX.set(self.OPTIONS[0])
-        self.DROPDOWN = tkinter.OptionMenu(window,CAMERA_INDEX,*self.OPTIONS)
         self.video_source =video_source
 
         #open video source
         self.vid = MyVideoCapture(video_source)
 
-        self.canvas=tkinter.Canvas(window)
-        self.canvas.pack()
-        self.photo_id=self.canvas.create_image(0, 0, anchor = tkinter.NW)
+        #set up canvas
+        self.canvas=ResizingImageCanvas(window)
+        self.canvas.grid(column=0, row=0, columnspan=3, sticky="news")
+        window.columnconfigure(0, weight=1)
+        window.rowconfigure(0, weight=1)
+        #set up video source dropdown
+        self.bottom_bar=tkinter.Frame(window)
+        self.bottom_bar.grid(column=0,row=1)
+        self.bottom_bar.columnconfigure(0, weight=1)
+        self.bottom_bar.columnconfigure(1, weight=1)
+        self.bottom_bar.columnconfigure(2, weight=1)
 
-        self.LABEL=tkinter.Label(window, text='Select a Video Source Index:')
-        self.TEMP_LABEL=tkinter.Label(window, text='Adjust Color Temperature:')
-
+        self.frame1=tkinter.Frame(self.bottom_bar)
+        self.frame1.grid(column=0,row=0)
+        self.LABEL=tkinter.Label(self.frame1, text='Select a Video Source Index:')
+        self.LABEL.pack(side="top")
+        self.DROPDOWN = tkinter.OptionMenu(self.frame1,CAMERA_INDEX,*self.OPTIONS)
+        self.DROPDOWN.pack(side="bottom")
+        #set up snapshot buttom
+        self.SNAPSHOT_BUTTON=tkinter.Button(self.bottom_bar, text='Take Snapshot', command=self.take_snapshot);
+        self.SNAPSHOT_BUTTON.grid(column=1,row=0)
+        #set up temperature slider
+        self.frame2=tkinter.Frame(self.bottom_bar)
+        self.frame2.grid(column=2,row=0)
+        self.TEMP_LABEL=tkinter.Label(self.frame2, text='Adjust Color Temperature:')
         TEMP_VARIABLE=tkinter.IntVar()
-        self.slider=tkinter.Scale(window,from_=2000, to=10000, orient='horizontal',resolution=500,variable=TEMP_VARIABLE)
+        self.slider=tkinter.Scale(self.frame2,from_=2000, to=10000, orient='horizontal',resolution=500,variable=TEMP_VARIABLE)
         self.slider.set(6500)
-
-        self.SNAPSHOT_BUTTON=tkinter.Button(window, text='Take Snapshot', command=self.take_snapshot);
-
-        self.LABEL.pack()
-        self.DROPDOWN.pack()
-        self.SNAPSHOT_BUTTON.pack()
-        self.TEMP_LABEL.pack()
-        self.slider.pack()
+        self.TEMP_LABEL.pack(side="top")
+        self.slider.pack(side="bottom")
 
         self.delay = 15
 
@@ -95,15 +107,67 @@ class App:
     def update(self):
         #Get a frame from the video source
         ret, frame=self.vid.get_frame()
-
         if ret:
             self.image=PIL.Image.fromarray(frame.astype(np.uint8))
-            self.resized_image=self.image.resize([int(self.image.size[0]*1.3),int(self.image.size[1]*1.3)])
-            self.photo = PIL.ImageTk.PhotoImage(image = self.resized_image)
-            self.canvas.config(width=self.resized_image.size[0], height=self.resized_image.size[1])
-            self.canvas.itemconfigure(self.photo_id, image=self.photo)
-        
+            self.canvas.setImage(self.image)
         self.window.after(self.delay,self.update)
+
+class ResizingImageCanvas(tkinter.Canvas):
+    """
+    This class inherits from tkinter.Canvas and provides some additional
+    functionality so that the canvas will resize the image it contains in
+    response to a change in size of the canvas.
+    """
+
+    def __init__(self, parent):
+        """
+        For the constructor for this class, in addition to sending the parent
+        widget, you also send the name of the file containing the image to
+        display in the canvas.
+
+        Args:
+            parent:  the widget in which the canvas will be contained
+            image_filename: the path and filename of the image to be displayed
+        """
+
+        # # Open the image to be used and determine its default size
+        # self.original_image_width = self.image.size[0]
+        # self.original_image_height = self.image.size[1]
+        # self.tk_image = ImageTk.PhotoImage(self.image)
+
+        # Call the constructor for tkinter.Canvas and set the initial size
+        #   of the canvas to be the default image size
+        tkinter.Canvas.__init__(self, parent)
+
+        # Create an image object on the canvas
+        self.photo_id = self.create_image(0, 0, anchor=tkinter.NW)
+        self.alpha=1
+
+        self.resize=1
+
+        # Bind the "Configure" event to a method so that when the canvas size
+        #  changes, the image size can be changed.
+        self.bind("<Configure>", self.on_resize)
+
+    def setImage(self,image):
+        self.image_width=image.size[0]
+        self.image_height=image.size[1]
+        resized_image=image.resize([int(self.image_width*self.alpha),int(self.image_height*self.alpha)])
+        self.photo = PIL.ImageTk.PhotoImage(image = resized_image)
+        self.itemconfigure(self.photo_id, image=self.photo)
+        
+
+    def on_resize(self, event): 
+        if(self.resize==1):
+            alpha_x = event.width / self.image_width
+            alpha_y = event.height / self.image_height
+            self.alpha = min(alpha_x, alpha_y)
+            self.config(width=self.image_width*self.alpha, height=self.image_height*self.alpha)
+            self.resize=0
+        else:
+           self.resize=1
+        
+
 
 class MyVideoCapture:
     def __init__(self, video_source=0):

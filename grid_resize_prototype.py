@@ -74,7 +74,7 @@ class MainWindow(tk.Tk):
     def __init__(self):
         super(MainWindow, self).__init__()
 
-        self.canvas = ResizingImageCanvas(self, "download.png")
+        self.canvas = ResizingImageCanvas(self, "./download.png")
         self.canvas.grid(column=0, row=0, sticky="news")
         # When using the .grid() method, by default tkinter will put the widget
         #   (the canvas in this case) in the center of the cell defined by
