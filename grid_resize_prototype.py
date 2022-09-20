@@ -42,6 +42,9 @@ class ResizingImageCanvas(tk.Canvas):
         self.bind("<Configure>", self.on_resize)
 
         # Create UI Objects on top of image
+        # The "ui_objects" list will contain the following:
+        #   0 - Upper left rectangle
+        #   1 - Upper right rectangle
         self.RECTANGLE_SIZE = 40
         self.ui_objects = []
         rectangle_id = self.create_rectangle(10, 10,
@@ -73,10 +76,19 @@ class ResizingImageCanvas(tk.Canvas):
         alpha_x = event.width / self.original_image_width
         alpha_y = event.height / self.original_image_height
         alpha = min(alpha_x, alpha_y)
+        new_width = round(self.image.size[0] * alpha)
+        new_height = round(self.image.size[1] * alpha)
         self.tk_image = ImageTk.PhotoImage(self.image.resize(
-            (round(self.image.size[0]*alpha), round(self.image.size[1]*alpha))
+            (new_width, new_height)
         ))
         self.itemconfigure(self.image_id, image=self.tk_image)
+        #Resize UI elements
+        self.coords(self.ui_objects[1],
+                    new_width - 10 - self.RECTANGLE_SIZE,
+                    10,
+                    new_width - 10,
+                    10+self.RECTANGLE_SIZE)
+
 
 
 class MainWindow(tk.Tk):
