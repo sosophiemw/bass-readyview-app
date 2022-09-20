@@ -41,6 +41,20 @@ class ResizingImageCanvas(tk.Canvas):
         #  changes, the image size can be changed.
         self.bind("<Configure>", self.on_resize)
 
+        # Create UI Objects on top of image
+        self.RECTANGLE_SIZE = 40
+        self.ui_objects = []
+        rectangle_id = self.create_rectangle(10, 10,
+                                             10+self.RECTANGLE_SIZE,
+                                             10+self.RECTANGLE_SIZE)
+        self.ui_objects.append(rectangle_id)
+        rectangle_id = self.create_rectangle(self.original_image_width - 10
+                                             - self.RECTANGLE_SIZE,
+                                             10,
+                                             self.original_image_width - 10,
+                                             10+self.RECTANGLE_SIZE)
+        self.ui_objects.append(rectangle_id)
+
     def on_resize(self, event):
         """
         This method will is bound to the "Configure" event and thus will be
