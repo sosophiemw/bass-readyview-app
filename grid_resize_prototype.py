@@ -2,6 +2,8 @@ from typing import Union
 import tkinter as tk
 from PIL import Image, ImageTk
 
+UI_HIDE_DELAY = 3000  # milliseconds
+
 
 class ResizingImageCanvas(tk.Canvas):
     """
@@ -58,6 +60,12 @@ class ResizingImageCanvas(tk.Canvas):
                                              10+self.RECTANGLE_SIZE)
         self.ui_objects.append(rectangle_id)
 
+        # Remove UI elements after 3 seconds
+        self.hide_function_id = self.after(UI_HIDE_DELAY, self.hide_ui_objects)
+
+        # Bind mouse motion to showing UI
+        self.bind("<Motion>", self.mouse_motion)
+
     def on_resize(self, event):
         """
         This method will is bound to the "Configure" event and thus will be
@@ -82,13 +90,38 @@ class ResizingImageCanvas(tk.Canvas):
             (new_width, new_height)
         ))
         self.itemconfigure(self.image_id, image=self.tk_image)
-        #Resize UI elements
+        # Resize UI elements
         self.coords(self.ui_objects[1],
                     new_width - 10 - self.RECTANGLE_SIZE,
                     10,
                     new_width - 10,
                     10+self.RECTANGLE_SIZE)
 
+    def hide_ui_objects(self):
+        """
+        Sets all UI objects to the "hidden" state
+        """
+        for object_id in self.ui_objects:
+            self.itemconfigure(object_id, state="hidden")
+
+    def show_ui_objects(self):
+        """
+        Sets all UI objects to the "normal" state so they are shown
+        """
+        for object_id in self.ui_objects:
+            self.itemconfigure(object_id, state="normal")
+
+    def mouse_motion(self, event):
+        """
+        When mouse movement is detected within the canvas, this function is
+        called.  It first cancels the running timer to hide the UI elements
+        after a certain period of time.  Then, it calls the method to set the
+        UI elements to the "normal" or shown state.  Then, it restarts the
+        3 second timer to hide the UI elements.
+        """
+        self.after_cancel(self.hide_function_id)
+        self.show_ui_objects()
+        self.hide_function_id = self.after(UI_HIDE_DELAY, self.hide_ui_objects)
 
 
 class MainWindow(tk.Tk):
