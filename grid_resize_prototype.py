@@ -66,6 +66,9 @@ class ResizingImageCanvas(tk.Canvas):
         # Bind mouse motion to showing UI
         self.bind("<Motion>", self.mouse_motion)
 
+        # Bind mouse click
+        self.bind("<Button-1>", self.on_click)
+
     def on_resize(self, event):
         """
         This method will is bound to the "Configure" event and thus will be
@@ -122,6 +125,12 @@ class ResizingImageCanvas(tk.Canvas):
         self.after_cancel(self.hide_function_id)
         self.show_ui_objects()
         self.hide_function_id = self.after(UI_HIDE_DELAY, self.hide_ui_objects)
+
+    def on_click(self, event):
+        for object_id in self.ui_objects:
+            x1, y1, x2, y2 = self.bbox(object_id)
+            if (x1 <= event.x < x2) and (y1 <= event.y <= y2):
+                print("Clicked in UI object {}".format(object_id))
 
 
 class MainWindow(tk.Tk):
