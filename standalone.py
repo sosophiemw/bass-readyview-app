@@ -120,27 +120,10 @@ class ResizingImageCanvas(tkinter.Canvas):
     """
 
     def __init__(self, parent):
-        """
-        For the constructor for this class, in addition to sending the parent
-        widget, you also send the name of the file containing the image to
-        display in the canvas.
-
-        Args:
-            parent:  the widget in which the canvas will be contained
-            image_filename: the path and filename of the image to be displayed
-        """
-
-        # # Open the image to be used and determine its default size
-        # self.original_image_width = self.image.size[0]
-        # self.original_image_height = self.image.size[1]
-        # self.tk_image = ImageTk.PhotoImage(self.image)
-
-        # Call the constructor for tkinter.Canvas and set the initial size
-        #   of the canvas to be the default image size
-        tkinter.Canvas.__init__(self, parent)
+        tkinter.Canvas.__init__(self, parent, background="red")
 
         # Create an image object on the canvas
-        self.photo_id = self.create_image(0, 0, anchor=tkinter.NW)
+        self.photo_id = self.create_image(0,0, anchor=tkinter.CENTER)
         self.alpha=1
 
         self.resize=1
@@ -163,6 +146,7 @@ class ResizingImageCanvas(tkinter.Canvas):
             alpha_y = event.height / self.image_height
             self.alpha = min(alpha_x, alpha_y)
             self.config(width=self.image_width*self.alpha, height=self.image_height*self.alpha)
+            self.moveto(self.photo_id,(self.winfo_width()-self.image_width*self.alpha)/2,(self.winfo_height()-self.image_height*self.alpha)/2)
             self.resize=0
         else:
            self.resize=1
