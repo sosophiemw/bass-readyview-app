@@ -52,7 +52,7 @@ class App:
         window.rowconfigure(0, weight=1)
         #set up video source dropdown
         self.bottom_bar=tkinter.Frame(window)
-        self.bottom_bar.grid(column=0,row=1)
+        self.bottom_bar.grid(column=0,row=1, sticky='ew')
         self.bottom_bar.columnconfigure(0, weight=1)
         self.bottom_bar.columnconfigure(1, weight=1)
         self.bottom_bar.columnconfigure(2, weight=1)
@@ -77,7 +77,7 @@ class App:
         self.slider.pack(side="bottom")
 
         self.delay = 15
-
+        
         self.update()
         self.window.mainloop()
 
@@ -102,7 +102,6 @@ class App:
         if DIRECTORY_NAME==None:
             DIRECTORY_NAME=filedialog.askdirectory()
         SNAPSHOT = True;
-
 
     def update(self):
         #Get a frame from the video source
@@ -166,7 +165,7 @@ class MyVideoCapture:
         self.height = self.vid.get(cv2.CAP_PROP_FRAME_HEIGHT)
 
         # Release the video source when the object is destroyed
-        def __del__(self):
+    def __del__(self):
          if self.vid.isOpened():
             self.vid.release()
 
