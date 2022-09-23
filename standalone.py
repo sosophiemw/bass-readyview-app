@@ -5,6 +5,8 @@ import cv2
 import PIL.Image, PIL.ImageTk
 import numpy as np
 
+import splash
+
 SNAPSHOT = False
 GUI_ON = True
 DIRECTORY_NAME=None
@@ -35,6 +37,11 @@ class App:
         global CAMERA_INDEX
 
         self.window = window
+
+        # Display Splash Screen
+        self.window.withdraw()
+        splash_screen = splash.Splash(self.window)
+
         self.window.title(window_title)
         self.window.minsize(700,600)
         self.OPTIONS=self.returnCameraIndexes()
@@ -77,6 +84,8 @@ class App:
         self.slider.pack(side="bottom")
 
         self.delay = 15
+        splash_screen.destroy()
+        self.window.deiconify()
 
         self.update()
         self.window.mainloop()
