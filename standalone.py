@@ -5,6 +5,7 @@ import cv2
 import PIL.Image, PIL.ImageTk
 import numpy as np
 
+import splash
 UI_HIDE_DELAY=3000;
 SNAPSHOT = False
 GUI_ON = True
@@ -37,6 +38,11 @@ class App:
         global UI_HIDE_DELAY
 
         self.window = window
+
+        # Display Splash Screen
+        self.window.withdraw()
+        splash_screen = splash.Splash(self.window)
+
         self.window.title(window_title)
         self.window.minsize(700,600)
         self.OPTIONS=self.returnCameraIndexes()
@@ -77,7 +83,6 @@ class App:
         self.slider.set(6500)
         self.TEMP_LABEL.pack(side="top")
         self.slider.pack(side="bottom")
-
         # Remove UI elements after 3 seconds
         self.hide_function_id = self.bottom_bar.after(UI_HIDE_DELAY, self.hide_bottom_bar)
 
@@ -85,6 +90,8 @@ class App:
         self.window.bind("<Motion>", self.mouse_motion)
 
         self.delay = 15
+        splash_screen.destroy()
+        self.window.deiconify()
         
         self.update()
         self.window.mainloop()
