@@ -5,6 +5,7 @@ import cv2
 import PIL.Image, PIL.ImageTk
 import numpy as np
 
+UI_HIDE_DELAY=3000;
 SNAPSHOT = False
 GUI_ON = True
 DIRECTORY_NAME=None
@@ -33,6 +34,7 @@ class App:
     def __init__(self, window, window_title, video_source=0):
         global TEMP_VARIABLE
         global CAMERA_INDEX
+        global UI_HIDE_DELAY
 
         self.window = window
         self.window.title(window_title)
@@ -47,7 +49,7 @@ class App:
 
         #set up canvas
         self.canvas=ResizingImageCanvas(window)
-        self.canvas.grid(column=0, row=0, columnspan=3, sticky="news")
+        self.canvas.grid(column=0, row=0, rowspan=1,sticky="news")
         window.columnconfigure(0, weight=1)
         window.rowconfigure(0, weight=1)
         #set up video source dropdown
@@ -76,10 +78,28 @@ class App:
         self.TEMP_LABEL.pack(side="top")
         self.slider.pack(side="bottom")
 
+        # Remove UI elements after 3 seconds
+        self.hide_function_id = self.bottom_bar.after(UI_HIDE_DELAY, self.hide_bottom_bar)
+
+        # Bind mouse motion to showing UI
+        self.window.bind("<Motion>", self.mouse_motion)
+
         self.delay = 15
         
         self.update()
         self.window.mainloop()
+    
+    def hide_bottom_bar(self):
+        self.bottom_bar.grid_forget()
+    
+    def mouse_motion(self, event):
+        global UI_HIDE_DELAY
+        self.bottom_bar.after_cancel(self.hide_function_id)
+        self.bottom_bar.grid(column=0,row=1, sticky='ew')
+        self.bottom_bar.columnconfigure(0, weight=1)
+        self.bottom_bar.columnconfigure(1, weight=1)
+        self.bottom_bar.columnconfigure(2, weight=1)
+        self.hide_function_id = self.bottom_bar.after(UI_HIDE_DELAY, self.hide_bottom_bar)
 
     def returnCameraIndexes(self):
         # checks the first 10 indexes.
@@ -87,9 +107,10 @@ class App:
         arr = []
         i = 10
 
+        cap = cv2.VideoCapture()
+
         while i > 0:
-            cap = cv2.VideoCapture(index,cv2.CAP_DSHOW)
-            if cap.read()[0]:
+            if cap.open(index, cv2.CAP_DSHOW):
                 arr.append(index)
                 cap.release()
             index += 1
@@ -150,8 +171,6 @@ class ResizingImageCanvas(tkinter.Canvas):
         else:
            self.resize=1
         
-
-
 class MyVideoCapture:
     def __init__(self, video_source=0):
         # Open the video source
