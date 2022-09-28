@@ -2,7 +2,7 @@ import tkinter
 from tkinter import filedialog
 import time
 import cv2
-import PIL.Image, PIL.ImageTk
+import PIL.Image, PIL.ImageTk, PIL.ImageDraw, PIL.ImageChops
 import numpy as np
 
 import splash
@@ -11,6 +11,7 @@ SNAPSHOT = False
 GUI_ON = True
 DIRECTORY_NAME=None
 TEMP_VARIABLE=None
+ROTATION_VARIABLE=None
 CAMERA_INDEX=None
 KELVIN_TABLE = {
     2000: (255,137,18),
@@ -36,6 +37,7 @@ class App:
         global TEMP_VARIABLE
         global CAMERA_INDEX
         global UI_HIDE_DELAY
+        global ROTATION_VARIABLE
 
         self.window = window
 
@@ -55,6 +57,7 @@ class App:
 
         #set up canvas
         self.canvas=ResizingImageCanvas(window)
+        self.canvas.configure(bg='#012169')
         self.canvas.grid(column=0, row=0, rowspan=1,sticky="news")
         window.columnconfigure(0, weight=1)
         window.rowconfigure(0, weight=1)
@@ -64,6 +67,7 @@ class App:
         self.bottom_bar.columnconfigure(0, weight=1)
         self.bottom_bar.columnconfigure(1, weight=1)
         self.bottom_bar.columnconfigure(2, weight=1)
+        self.bottom_bar.columnconfigure(3, weight=1)
 
         self.frame1=tkinter.Frame(self.bottom_bar)
         self.frame1.grid(column=0,row=0)
@@ -83,6 +87,17 @@ class App:
         self.slider.set(6500)
         self.TEMP_LABEL.pack(side="top")
         self.slider.pack(side="bottom")
+
+        self.frame3=tkinter.Frame(self.bottom_bar)
+        self.frame3.grid(column=3,row=0)
+        self.ROTATION_LABEL=tkinter.Label(self.frame3, text='Adjust Image Rotation:')
+        ROTATION_VARIABLE=tkinter.IntVar()
+        self.rot_slider=tkinter.Scale(self.frame3,from_=-180, to=180, orient='horizontal',resolution=5,variable=ROTATION_VARIABLE)
+        self.rot_slider.set(0)
+        self.ROTATION_LABEL.pack(side="top")
+        self.rot_slider.pack(side="bottom")
+
+
         # Remove UI elements after 3 seconds
         self.hide_function_id = self.bottom_bar.after(UI_HIDE_DELAY, self.hide_bottom_bar)
 
@@ -147,7 +162,7 @@ class ResizingImageCanvas(tkinter.Canvas):
     """
 
     def __init__(self, parent):
-        tkinter.Canvas.__init__(self, parent, background="red")
+        tkinter.Canvas.__init__(self, parent)
 
         # Create an image object on the canvas
         self.photo_id = self.create_image(0,0, anchor=tkinter.CENTER)
@@ -159,13 +174,26 @@ class ResizingImageCanvas(tkinter.Canvas):
         #  changes, the image size can be changed.
         self.bind("<Configure>", self.on_resize)
 
+    def crop_to_circle(self, im):
+        height, width = im.size
+        lum_img = PIL.Image.new('L', [height,width] , 0)
+        draw = PIL.ImageDraw.Draw(lum_img)
+        draw.pieslice([(0,0), (height,width)], 0, 360, 
+        fill = 255, outline = "white")
+
     def setImage(self,image):
+        global ROTATION_VARIABLE
         self.image_width=image.size[0]
         self.image_height=image.size[1]
-        resized_image=image.resize([int(self.image_width*self.alpha),int(self.image_height*self.alpha)])
-        self.photo = PIL.ImageTk.PhotoImage(image = resized_image)
+        resized_image=image.resize([int(self.image_width*self.alpha),int(self.image_height*self.alpha)]).rotate(ROTATION_VARIABLE.get(), PIL.Image.NEAREST, expand = 0)
+        height, width = resized_image.size
+        lum_img = PIL.Image.new('L', [height,width] , 0)
+        draw = PIL.ImageDraw.Draw(lum_img)
+        draw.pieslice([(0,0), (width,width)], 0, 360, 
+        fill = 255, outline = "white")
+        resized_image.putalpha(lum_img)
+        self.photo = PIL.ImageTk.PhotoImage(image = resized_image )
         self.itemconfigure(self.photo_id, image=self.photo)
-        
 
     def on_resize(self, event): 
         if(self.resize==1):
