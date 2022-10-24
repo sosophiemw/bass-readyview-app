@@ -4,8 +4,9 @@ import time
 import cv2
 import PIL.Image, PIL.ImageTk, PIL.ImageDraw, PIL.ImageChops
 import numpy as np
-
+import serial
 import splash
+
 UI_HIDE_DELAY=3000;
 SNAPSHOT = False
 GUI_ON = True
@@ -31,7 +32,6 @@ KELVIN_TABLE = {
     9000: (214,225,255),
     9500: (208,222,255),
     10000: (204,219,255)}
-
 class App:
     def __init__(self, window, window_title, video_source=0):
         global TEMP_VARIABLE
@@ -169,27 +169,33 @@ class ResizingImageCanvas(tkinter.Canvas):
         self.alpha=1
 
         self.resize=1
+        self.rotation_variable=0
 
         # Bind the "Configure" event to a method so that when the canvas size
         #  changes, the image size can be changed.
         self.bind("<Configure>", self.on_resize)
 
-    def crop_to_circle(self, im):
-        height, width = im.size
-        lum_img = PIL.Image.new('L', [height,width] , 0)
-        draw = PIL.ImageDraw.Draw(lum_img)
-        draw.pieslice([(0,0), (height,width)], 0, 360, 
-        fill = 255, outline = "white")
+        self.ser = serial.Serial(port='COM7', baudrate=115200, bytesize=serial.EIGHTBITS,
+                    parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE)
+        self.ser.write("[1D100\r".encode('utf-8'))
 
     def setImage(self,image):
         global ROTATION_VARIABLE
         self.image_width=image.size[0]
         self.image_height=image.size[1]
-        resized_image=image.resize([int(self.image_width*self.alpha),int(self.image_height*self.alpha)]).rotate(ROTATION_VARIABLE.get(), PIL.Image.NEAREST, expand = 0)
+
+        self.ser.flushInput() #flushes input so only most recent data is displayed
+        s=self.ser.readline() #reads new input
+        data_string = s.decode("utf-8")
+        data = data_string.split(",")
+        if(len(data)>5):
+            self.rotation_variable=int(float(data[len(data)-2]))
+            
+        resized_image=image.resize([int(self.image_width*self.alpha),int(self.image_height*self.alpha)]).rotate(self.rotation_variable, PIL.Image.NEAREST, expand = 0)
         height, width = resized_image.size
         lum_img = PIL.Image.new('L', [height,width] , 0)
         draw = PIL.ImageDraw.Draw(lum_img)
-        draw.pieslice([(0,0), (width,width)], 0, 360, 
+        draw.pieslice([((self.winfo_width()-width)/2,(self.winfo_height()-width)/2), ((self.winfo_width()-width)/2+width,(self.winfo_height()-width)/2+width)], 0, 360,
         fill = 255, outline = "white")
         resized_image.putalpha(lum_img)
         self.photo = PIL.ImageTk.PhotoImage(image = resized_image )
