@@ -7,14 +7,15 @@ import numpy as np
 import serial
 import splash
 
-UI_HIDE_DELAY=3000;
-SNAPSHOT = False
+#DEFINING GLOBAL VARIABLES
+UI_HIDE_DELAY=3000; #bottom bar will disappear after three seconds of no mouse movement
+SNAPSHOT = False #Only toggles on when the snapshot button has been pressed
 GUI_ON = True
-DIRECTORY_NAME=None
-TEMP_VARIABLE=None
-ROTATION_VARIABLE=None
-CAMERA_INDEX=None
-KELVIN_TABLE = {
+DIRECTORY_NAME=None #The name of the folder where the pictures should be shared
+TEMP_VARIABLE=None #color temperature variable
+ROTATION_VARIABLE=None #degree to rotate the image
+CAMERA_INDEX=None #what source the video is being pulled from
+KELVIN_TABLE = { #maps the temperature variables to how RGB channels should be adjusted
     2000: (255,137,18),
     2500: (255,161,72),
     3000: (255,180,107),
@@ -32,7 +33,7 @@ KELVIN_TABLE = {
     9000: (214,225,255),
     9500: (208,222,255),
     10000: (204,219,255)}
-class App:
+class App: #sets up the user interface
     def __init__(self, window, window_title, video_source=0):
         global TEMP_VARIABLE
         global CAMERA_INDEX
@@ -45,49 +46,56 @@ class App:
         self.window.withdraw()
         splash_screen = splash.Splash(self.window)
 
-        self.window.title(window_title)
-        self.window.minsize(700,600)
-        self.OPTIONS=self.returnCameraIndexes()
-        CAMERA_INDEX=tkinter.StringVar()
-        CAMERA_INDEX.set(self.OPTIONS[0])
-        self.video_source =video_source
+
+        self.window.title(window_title) #sets window title to ReadyView
+        self.window.minsize(700,600) #sets minimum dimensions of the window
+        window.columnconfigure(0, weight=1) #The window is split into a grid pattern and having weights of the first row and first column set to 1 means it will take up all space not used by other elements in the grid
+        window.rowconfigure(0, weight=1)
+
+        self.OPTIONS=self.returnCameraIndexes() #returns a list of available camera indexes
+        CAMERA_INDEX=tkinter.StringVar() 
+        CAMERA_INDEX.set(self.OPTIONS[0]) #defaults the camera index to the first option
 
         #open video source
+        self.video_source =video_source
         self.vid = MyVideoCapture(video_source)
 
         #set up canvas
         self.canvas=ResizingImageCanvas(window)
         self.canvas.configure(bg='#012169')
-        self.canvas.grid(column=0, row=0, rowspan=1,sticky="news")
-        window.columnconfigure(0, weight=1)
-        window.rowconfigure(0, weight=1)
-        #set up video source dropdown
-        self.bottom_bar=tkinter.Frame(window)
-        self.bottom_bar.grid(column=0,row=1, sticky='ew')
+        self.canvas.grid(column=0, row=0, rowspan=1,sticky="news") #places the canvas in the first row and first column of the window grid
+
+        #set up bottom_bar
+        self.bottom_bar=tkinter.Frame(window) 
+        self.bottom_bar.grid(column=0,row=1, sticky='ew') #places the bottom_bar frame in the first column and second row of the window grid
         self.bottom_bar.columnconfigure(0, weight=1)
         self.bottom_bar.columnconfigure(1, weight=1)
         self.bottom_bar.columnconfigure(2, weight=1)
         self.bottom_bar.columnconfigure(3, weight=1)
 
-        self.frame1=tkinter.Frame(self.bottom_bar)
+        #set up video source dropdown
+        self.frame1=tkinter.Frame(self.bottom_bar) #creates frame inside the bottom bar
         self.frame1.grid(column=0,row=0)
         self.LABEL=tkinter.Label(self.frame1, text='Select a Video Source Index:')
         self.LABEL.pack(side="top")
         self.DROPDOWN = tkinter.OptionMenu(self.frame1,CAMERA_INDEX,*self.OPTIONS)
         self.DROPDOWN.pack(side="bottom")
+
         #set up snapshot buttom
         self.SNAPSHOT_BUTTON=tkinter.Button(self.bottom_bar, text='Take Snapshot', command=self.take_snapshot);
         self.SNAPSHOT_BUTTON.grid(column=1,row=0)
+
         #set up temperature slider
         self.frame2=tkinter.Frame(self.bottom_bar)
         self.frame2.grid(column=2,row=0)
         self.TEMP_LABEL=tkinter.Label(self.frame2, text='Adjust Color Temperature:')
         TEMP_VARIABLE=tkinter.IntVar()
-        self.slider=tkinter.Scale(self.frame2,from_=2000, to=10000, orient='horizontal',resolution=500,variable=TEMP_VARIABLE)
+        self.slider=tkinter.Scale(self.frame2,from_=2000, to=10000, orient='horizontal',resolution=500,variable=TEMP_VARIABLE) #adjusting the slider changes the global temperature_variable so color temp can be adjusted
         self.slider.set(6500)
         self.TEMP_LABEL.pack(side="top")
         self.slider.pack(side="bottom")
 
+        #set up rotation slider
         self.frame3=tkinter.Frame(self.bottom_bar)
         self.frame3.grid(column=3,row=0)
         self.ROTATION_LABEL=tkinter.Label(self.frame3, text='Adjust Image Rotation:')
@@ -108,7 +116,7 @@ class App:
         splash_screen.destroy()
         self.window.deiconify()
         
-        self.update()
+        self.update() #called over and over to update image
         self.window.mainloop()
     
     def hide_bottom_bar(self):
@@ -123,7 +131,7 @@ class App:
         self.bottom_bar.columnconfigure(2, weight=1)
         self.hide_function_id = self.bottom_bar.after(UI_HIDE_DELAY, self.hide_bottom_bar)
 
-    def returnCameraIndexes(self):
+    def returnCameraIndexes(self): #returns potential video sources
         # checks the first 10 indexes.
         index = 0
         arr = []
@@ -146,10 +154,10 @@ class App:
             DIRECTORY_NAME=filedialog.askdirectory()
         SNAPSHOT = True;
 
-    def update(self):
+    def update(self): #basic structure: update function gets a frame from the camera using the vid.get_frame method and passes it to the camera.setImage() so that it can be rotated, resized, and displayed on the canvas
         #Get a frame from the video source
         ret, frame=self.vid.get_frame()
-        if ret:
+        if ret: #if there is an image returned, the canvas element is updated with this new image using the set image function
             self.image=PIL.Image.fromarray(frame.astype(np.uint8))
             self.canvas.setImage(self.image)
         self.window.after(self.delay,self.update)
@@ -161,7 +169,7 @@ class ResizingImageCanvas(tkinter.Canvas):
     response to a change in size of the canvas.
     """
 
-    def __init__(self, parent):
+    def __init__(self, parent): #initializes variables for canvas object
         tkinter.Canvas.__init__(self, parent)
 
         # Create an image object on the canvas
@@ -175,34 +183,35 @@ class ResizingImageCanvas(tkinter.Canvas):
         #  changes, the image size can be changed.
         self.bind("<Configure>", self.on_resize)
 
-        self.ser = serial.Serial(port='COM7', baudrate=115200, bytesize=serial.EIGHTBITS,
-                    parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE)
-        self.ser.write("[1D100\r".encode('utf-8'))
+        # self.ser = serial.Serial(port='COM7', baudrate=115200, bytesize=serial.EIGHTBITS,
+        #             parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE)
+        # self.ser.write("[1D100\r".encode('utf-8'))
 
     def setImage(self,image):
         global ROTATION_VARIABLE
         self.image_width=image.size[0]
         self.image_height=image.size[1]
 
-        self.ser.flushInput() #flushes input so only most recent data is displayed
-        s=self.ser.readline() #reads new input
-        data_string = s.decode("utf-8")
-        data = data_string.split(",")
-        if(len(data)>5):
-            self.rotation_variable=int(float(data[len(data)-2]))
+        # self.ser.flushInput() #flushes input so only most recent data is displayed
+        # s=self.ser.readline() #reads new input
+        # data_string = s.decode("utf-8")
+        # data = data_string.split(",")
+        # if(len(data)>5):
+        #     self.rotation_variable=int(float(data[len(data)-2]))
             
         resized_image=image.resize([int(self.image_width*self.alpha),int(self.image_height*self.alpha)]).rotate(self.rotation_variable, PIL.Image.NEAREST, expand = 0)
         height, width = resized_image.size
+        #creates a mask that allows the image to be cropped to a circle
         lum_img = PIL.Image.new('L', [height,width] , 0)
         draw = PIL.ImageDraw.Draw(lum_img)
         draw.pieslice([((self.winfo_width()-width)/2,(self.winfo_height()-width)/2), ((self.winfo_width()-width)/2+width,(self.winfo_height()-width)/2+width)], 0, 360,
         fill = 255, outline = "white")
-        resized_image.putalpha(lum_img)
-        self.photo = PIL.ImageTk.PhotoImage(image = resized_image )
-        self.itemconfigure(self.photo_id, image=self.photo)
+        resized_image.putalpha(lum_img) #sets the opacity values of the image to this cropped circle so only the circular image shows through
+        self.photo = PIL.ImageTk.PhotoImage(image = resized_image ) #turns the resized_image into the proper form
+        self.itemconfigure(self.photo_id, image=self.photo) #sets the photo on the canvas
 
-    def on_resize(self, event): 
-        if(self.resize==1):
+    def on_resize(self, event): #when the screen size is adjusted, this method should set the width and height od the canvas to an adjusted value
+        if(self.resize==1): #There were issues with the screen growing infinitely large so that why there is a weird fix that toggles self.resize on and off
             alpha_x = event.width / self.image_width
             alpha_y = event.height / self.image_height
             self.alpha = min(alpha_x, alpha_y)
@@ -224,12 +233,13 @@ class MyVideoCapture:
         self.width = self.vid.get(cv2.CAP_PROP_FRAME_WIDTH)
         self.height = self.vid.get(cv2.CAP_PROP_FRAME_HEIGHT)
 
-        # Release the video source when the object is destroyed
+    # Release the video source when the object is destroyed
     def __del__(self):
          if self.vid.isOpened():
             self.vid.release()
 
-    def get_frame(self):
+    #gets frame from camera, and tweaks to reflect changes in temperature
+    def get_frame(self): 
         global KELVIN_TABLE;
         global TEMP_VARIABLE;
         global CAMERA_INDEX;
@@ -249,9 +259,10 @@ class MyVideoCapture:
             ret, frame = self.vid.read()
             if ret:
                 # Return a boolean success flag and the current frame converted to BGR
+                #adjust photo to be of the appropriate temperature
                 frame=frame.astype(np.float64);
                 weight_array_temp=np.array([1, 1, 1])/255
-                temp_array=np.array(KELVIN_TABLE[TEMP_VARIABLE.get()]) #int(temp_variable.get())
+                temp_array=np.array(KELVIN_TABLE[TEMP_VARIABLE.get()]) #uses temperature variable from ui slider to find appropriate values
                 weight_array_temp[0]*=temp_array[2]
                 weight_array_temp[1]*=temp_array[1]
                 weight_array_temp[2]*=temp_array[0]
@@ -261,20 +272,19 @@ class MyVideoCapture:
                 frame[:, :640, 1] *= mod_weight_array[1]
                 frame[:, :640, 2] *= mod_weight_array[2]
 
-                if SNAPSHOT:
+                if SNAPSHOT: #if the snapshow button has been pressed save the image in the appropriate folder
                     timestr = time.strftime("%Y%m%d-%H%M%S")
                     print(timestr)
                     cv2.imwrite(DIRECTORY_NAME+'/'+timestr+'.png', frame)
-                    SNAPSHOT = False
+                    SNAPSHOT = False #reset snapshot to false
 
 
-                frame = np.flip(frame, axis=2)
+                frame = np.flip(frame, axis=2) #mirror frame
                 return (ret, frame);
             else:
                 return (ret, None)
         else:
             return (ret, None)    
-        
 
 # Create a window and pass it to the Application object
 App(tkinter.Tk(), "ReadyView")
