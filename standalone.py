@@ -6,6 +6,7 @@ import PIL.Image, PIL.ImageTk, PIL.ImageDraw, PIL.ImageChops
 import numpy as np
 import serial
 import splash
+import math
 
 #DEFINING GLOBAL VARIABLES
 UI_HIDE_DELAY=3000; #bottom bar will disappear after three seconds of no mouse movement
@@ -14,6 +15,8 @@ GUI_ON = True
 DIRECTORY_NAME=None #The name of the folder where the pictures should be shared
 TEMP_VARIABLE=None #color temperature variable
 ROTATION_VARIABLE=None #degree to rotate the image
+FREEZE_ROT=None
+ROT_BASELINE=None
 CAMERA_INDEX=None #what source the video is being pulled from
 KELVIN_TABLE = { #maps the temperature variables to how RGB channels should be adjusted
     2000: (255,137,18),
@@ -45,7 +48,6 @@ class App: #sets up the user interface
         # Display Splash Screen
         self.window.withdraw()
         splash_screen = splash.Splash(self.window)
-
 
         self.window.title(window_title) #sets window title to ReadyView
         self.window.minsize(700,600) #sets minimum dimensions of the window
@@ -95,16 +97,8 @@ class App: #sets up the user interface
         self.TEMP_LABEL.pack(side="top")
         self.slider.pack(side="bottom")
 
-        #set up rotation slider
-        self.frame3=tkinter.Frame(self.bottom_bar)
-        self.frame3.grid(column=3,row=0)
-        self.ROTATION_LABEL=tkinter.Label(self.frame3, text='Adjust Image Rotation:')
-        ROTATION_VARIABLE=tkinter.IntVar()
-        self.rot_slider=tkinter.Scale(self.frame3,from_=-180, to=180, orient='horizontal',resolution=5,variable=ROTATION_VARIABLE)
-        self.rot_slider.set(0)
-        self.ROTATION_LABEL.pack(side="top")
-        self.rot_slider.pack(side="bottom")
-
+        self.FREEZE_ROT_BUTTON=tkinter.Button(self.bottom_bar, text='FREEZE ROTATION', command=self.freeze_rotation);
+        self.FREEZE_ROT_BUTTON.grid(column=3,row=0)
 
         # Remove UI elements after 3 seconds
         self.hide_function_id = self.bottom_bar.after(UI_HIDE_DELAY, self.hide_bottom_bar)
@@ -154,6 +148,25 @@ class App: #sets up the user interface
             DIRECTORY_NAME=filedialog.askdirectory()
         SNAPSHOT = True;
 
+    def freeze_rotation(self):
+        global FREEZE_ROT
+        global ROT_BASELINE
+        if FREEZE_ROT==True:
+            self.FREEZE_ROT_BUTTON['text']=" FREEZE ROTATION"
+            FREEZE_ROT=False
+        else:
+            self.FREEZE_ROT_BUTTON['text']="UNFREEZE ROTATION"
+
+            self.canvas.ser.flushInput() #flushes input so only most recent data is displayed
+            s=self.canvas.ser.readline() #reads new input
+            data_string = s.decode("utf-8")
+            data = data_string.split(",")
+            if(len(data)>5):
+                ROT_BASELINE=int(float(data[len(data)-2]))
+            
+            FREEZE_ROT=True
+
+
     def update(self): #basic structure: update function gets a frame from the camera using the vid.get_frame method and passes it to the camera.setImage() so that it can be rotated, resized, and displayed on the canvas
         #Get a frame from the video source
         ret, frame=self.vid.get_frame()
@@ -183,38 +196,33 @@ class ResizingImageCanvas(tkinter.Canvas):
         #  changes, the image size can be changed.
         self.bind("<Configure>", self.on_resize)
 
-        # self.ser = serial.Serial(port='COM7', baudrate=115200, bytesize=serial.EIGHTBITS,
-        #             parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE)
-        # self.ser.write("[1D100\r".encode('utf-8'))
+        self.ser = serial.Serial(port='COM7', baudrate=115200, bytesize=serial.EIGHTBITS,
+                    parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE)
+        self.ser.write("[1D100\r".encode('utf-8'))
 
     def setImage(self,image):
         global ROTATION_VARIABLE
+        global FREEZE_ROT
         self.image_width=image.size[0]
         self.image_height=image.size[1]
 
-        # self.ser.flushInput() #flushes input so only most recent data is displayed
-        # s=self.ser.readline() #reads new input
-        # data_string = s.decode("utf-8")
-        # data = data_string.split(",")
-        # if(len(data)>5):
-        #     self.rotation_variable=int(float(data[len(data)-2]))
-            
-        resized_image=image.resize([int(self.image_width*self.alpha),int(self.image_height*self.alpha)]).rotate(self.rotation_variable, PIL.Image.NEAREST, expand = 0)
+        self.ser.flushInput() #flushes input so only most recent data is displayed
+        s=self.ser.readline() #reads new input
+        data_string = s.decode("utf-8")
+        data = data_string.split(",")
+        if(len(data)>5):
+            self.rotation_variable=int(float(data[len(data)-2]))    
+        resized_image=image.resize([int(self.image_width*self.alpha),int(self.image_height*self.alpha)]).rotate(self.rotation_variable-ROT_BASELINE if FREEZE_ROT else 0, PIL.Image.NEAREST, expand = 0)
         height, width = resized_image.size
-        #creates a mask that allows the image to be cropped to a circle
-        lum_img = PIL.Image.new('L', [height,width] , 0)
-        draw = PIL.ImageDraw.Draw(lum_img)
-        draw.pieslice([((self.winfo_width()-width)/2,(self.winfo_height()-width)/2), ((self.winfo_width()-width)/2+width,(self.winfo_height()-width)/2+width)], 0, 360,
-        fill = 255, outline = "white")
-        resized_image.putalpha(lum_img) #sets the opacity values of the image to this cropped circle so only the circular image shows through
         self.photo = PIL.ImageTk.PhotoImage(image = resized_image ) #turns the resized_image into the proper form
         self.itemconfigure(self.photo_id, image=self.photo) #sets the photo on the canvas
 
     def on_resize(self, event): #when the screen size is adjusted, this method should set the width and height od the canvas to an adjusted value
         if(self.resize==1): #There were issues with the screen growing infinitely large so that why there is a weird fix that toggles self.resize on and off
-            alpha_x = event.width / self.image_width
-            alpha_y = event.height / self.image_height
-            self.alpha = min(alpha_x, alpha_y)
+            # alpha_x = event.width / self.image_width
+            # alpha_y = event.height / self.image_height
+            # self.alpha = max(alpha_x, alpha_y)
+            self.alpha=math.sqrt(event.width*event.width + event.height*event.height)/ self.image_height #sets the width to the length of the diagonal so there is nothing being cut off
             self.config(width=self.image_width*self.alpha, height=self.image_height*self.alpha)
             self.moveto(self.photo_id,(self.winfo_width()-self.image_width*self.alpha)/2,(self.winfo_height()-self.image_height*self.alpha)/2)
             self.resize=0
