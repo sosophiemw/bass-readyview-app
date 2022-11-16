@@ -7,6 +7,8 @@ import numpy as np
 import serial
 import splash
 import math
+import sys
+import glob
 
 #DEFINING GLOBAL VARIABLES
 UI_HIDE_DELAY=3000; #bottom bar will disappear after three seconds of no mouse movement
@@ -16,7 +18,8 @@ DIRECTORY_NAME=None #The name of the folder where the pictures should be shared
 TEMP_VARIABLE=None #color temperature variable
 ROTATION_VARIABLE=None #degree to rotate the image
 FREEZE_ROT=None
-ROT_BASELINE=None
+ROT_BASELINE=0
+PREV_TIME=0
 CAMERA_INDEX=None #what source the video is being pulled from
 KELVIN_TABLE = { #maps the temperature variables to how RGB channels should be adjusted
     2000: (255,137,18),
@@ -36,6 +39,59 @@ KELVIN_TABLE = { #maps the temperature variables to how RGB channels should be a
     9000: (214,225,255),
     9500: (208,222,255),
     10000: (204,219,255)}
+
+def returnCameraIndexes(): #returns potential video sources
+        # checks the first 10 indexes.
+        index = 0
+        arr = []
+        i = 10
+
+        cap = cv2.VideoCapture()
+
+        while i > 0:
+            if cap.open(index, cv2.CAP_DSHOW):
+                arr.append(index)
+                cap.release()
+            index += 1
+            i -= 1
+        return arr
+
+def serial_ports():
+    """ Lists serial port names
+
+        :raises EnvironmentError:
+            On unsupported or unknown platforms
+        :returns:
+            A list of the serial ports available on the system
+    """
+    if sys.platform.startswith('win'):
+        ports = ['COM%s' % (i + 1) for i in range(256)]
+    elif sys.platform.startswith('linux') or sys.platform.startswith('cygwin'):
+        # this excludes your current terminal "/dev/tty"
+        ports = glob.glob('/dev/tty[A-Za-z]*')
+    elif sys.platform.startswith('darwin'):
+        ports = glob.glob('/dev/tty.*')
+    else:
+        raise EnvironmentError('Unsupported platform')
+
+    result = []
+    for port in ports:
+        try:
+            ser = serial.Serial(port, baudrate=115200, bytesize=serial.EIGHTBITS,
+                    parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, write_timeout=5)
+            ser.write("[1D100\r".encode('utf-8'))
+            ser.write("[N?\r".encode('utf-8'))
+            for x in range(5):
+                s = ser.readline()
+                data_string = s.decode("utf-8")
+                data = data_string.split(",")
+                if(data[0]=='>Unit Number:1\r\r\n'):
+                    result.append(port)
+            ser.close()
+        except (OSError, serial.SerialException):
+            pass
+
+    return result
 class App: #sets up the user interface
     def __init__(self, window, window_title, video_source=0):
         global TEMP_VARIABLE
@@ -54,7 +110,7 @@ class App: #sets up the user interface
         window.columnconfigure(0, weight=1) #The window is split into a grid pattern and having weights of the first row and first column set to 1 means it will take up all space not used by other elements in the grid
         window.rowconfigure(0, weight=1)
 
-        self.OPTIONS=self.returnCameraIndexes() #returns a list of available camera indexes
+        self.OPTIONS=returnCameraIndexes() #returns a list of available camera indexes
         CAMERA_INDEX=tkinter.StringVar() 
         CAMERA_INDEX.set(self.OPTIONS[0]) #defaults the camera index to the first option
 
@@ -125,22 +181,6 @@ class App: #sets up the user interface
         self.bottom_bar.columnconfigure(2, weight=1)
         self.hide_function_id = self.bottom_bar.after(UI_HIDE_DELAY, self.hide_bottom_bar)
 
-    def returnCameraIndexes(self): #returns potential video sources
-        # checks the first 10 indexes.
-        index = 0
-        arr = []
-        i = 10
-
-        cap = cv2.VideoCapture()
-
-        while i > 0:
-            if cap.open(index, cv2.CAP_DSHOW):
-                arr.append(index)
-                cap.release()
-            index += 1
-            i -= 1
-        return arr
-
     def take_snapshot(self):
         global SNAPSHOT
         global DIRECTORY_NAME
@@ -196,23 +236,37 @@ class ResizingImageCanvas(tkinter.Canvas):
         #  changes, the image size can be changed.
         self.bind("<Configure>", self.on_resize)
 
-        self.ser = serial.Serial(port='COM7', baudrate=115200, bytesize=serial.EIGHTBITS,
+        ports=serial_ports()
+        if(len(ports)>0):
+            gyro_port=ports[0]
+            self.ser = serial.Serial(port=gyro_port, baudrate=115200, bytesize=serial.EIGHTBITS,
                     parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE)
-        self.ser.write("[1D100\r".encode('utf-8'))
+            self.ser.write("[1D100\r".encode('utf-8'))
+            self.use_gyro=True
+        else:
+            self.use_gyro=False
 
     def setImage(self,image):
         global ROTATION_VARIABLE
         global FREEZE_ROT
+        global ROT_BASELINE
+        global PREV_TIME
         self.image_width=image.size[0]
         self.image_height=image.size[1]
 
-        self.ser.flushInput() #flushes input so only most recent data is displayed
-        s=self.ser.readline() #reads new input
-        data_string = s.decode("utf-8")
-        data = data_string.split(",")
-        if(len(data)>5):
-            self.rotation_variable=int(float(data[len(data)-2]))    
-        resized_image=image.resize([int(self.image_width*self.alpha),int(self.image_height*self.alpha)]).rotate(self.rotation_variable-ROT_BASELINE if FREEZE_ROT else 0, PIL.Image.NEAREST, expand = 0)
+        current_time=time.perf_counter();
+        gap=current_time-PREV_TIME;
+        print(1.0/gap)
+        PREV_TIME=current_time;
+        resized_image=image#.resize([int(self.image_width*self.alpha),int(self.image_height*self.alpha)])
+        if(self.use_gyro):
+            self.ser.flushInput() #flushes input so only most recent data is displayed
+            s=self.ser.readline() #reads new input
+            data_string = s.decode("utf-8")
+            data = data_string.split(",")
+            if(len(data)>5):
+                self.rotation_variable=int(float(data[len(data)-2]))  
+            resized_image=resized_image.rotate(self.rotation_variable-ROT_BASELINE if FREEZE_ROT else 0, PIL.Image.NEAREST, expand = 0) 
         height, width = resized_image.size
         self.photo = PIL.ImageTk.PhotoImage(image = resized_image ) #turns the resized_image into the proper form
         self.itemconfigure(self.photo_id, image=self.photo) #sets the photo on the canvas
