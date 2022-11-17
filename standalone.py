@@ -78,7 +78,7 @@ def serial_ports():
     for port in ports:
         try:
             ser = serial.Serial(port, baudrate=115200, bytesize=serial.EIGHTBITS,
-                    parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, write_timeout=5)
+                    parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE, write_timeout=5, timeout=1)
             ser.write("[1D100\r".encode('utf-8'))
             ser.write("[N?\r".encode('utf-8'))
             for x in range(5):
