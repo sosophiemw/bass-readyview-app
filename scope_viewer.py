@@ -82,8 +82,11 @@ class Viewer:
         self.freeze_rot_button.grid(column=3, row=0)
 
         # Remove UI elements after specified period of time
-        # self.hide_function_id = self.bottom_bar.after(UI_HIDE_DELAY,
-        #                                               self.hide_bottom_bar)
+        self.hide_function_id = self.bottom_bar.after(UI_HIDE_DELAY,
+                                                      self.hide_bottom_bar)
+
+        # Bind mouse motion to showing UI
+        self.window.bind("<Motion>", self.mouse_motion)
 
         splash_screen.destroy()
         self.window.deiconify()
@@ -97,6 +100,15 @@ class Viewer:
     def freeze_rotation(self):
         # ToDo: Code freeze_rotation command function
         pass
+
+    def hide_bottom_bar(self):
+        self.bottom_bar.place_forget()
+
+    def mouse_motion(self, event):
+        self.bottom_bar.after_cancel(self.hide_function_id)
+        self.bottom_bar.place(relx=0.5, rely=1, anchor=tk.S)
+        self.hide_function_id = self.bottom_bar.after(UI_HIDE_DELAY,
+                                                      self.hide_bottom_bar)
 
 
 class MyVideoCapture:
