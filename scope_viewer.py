@@ -230,17 +230,19 @@ class MyVideoCapture:
         # Convert BGR, obtained by OpenCV, to RGB which is what Pillow expects
         frame = np.flip(frame, axis=2)
         image = PIL.Image.fromarray(frame.astype(np.uint8))
+        if snapshot_dir_name is not None:
+            timestr = time.strftime("%Y%m%d-%H%M%S")
+            filename = "{}.png".format(timestr)
+            path_file_name = os.path.join(snapshot_dir_name, filename)
+            image.save(path_file_name)
+        # ToDo:  Where should snapshot be?
+        #  Before or after sizing/rotation/color?
         if not (0.98 <= alpha <= 1.02):
             new_x = round(raw_image_width * alpha)
             new_y = round(raw_image_height * alpha)
             image = image.resize((new_x, new_y))
         if rotation != 0:
             image = image.rotate(rotation, PIL.Image.NEAREST)
-        if snapshot_dir_name is not None:
-            timestr = time.strftime("%Y%m%d-%H%M%S")
-            filename = "{}.png".format(timestr)
-            path_file_name = os.path.join(snapshot_dir_name, filename)
-            image.save(path_file_name)
         tk_image = PIL.ImageTk.PhotoImage(image)
         image_label.configure(image=tk_image)
         image_label.image = tk_image
