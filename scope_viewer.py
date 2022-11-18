@@ -117,12 +117,12 @@ class Viewer:
 
         splash_screen.update_message("Finding inclinometer...")
         # Check for inclinometer
-        ports = SerialPort.find_available_ports()
+        ports = MockSerialPort.find_available_ports()
         self.ser = None
         self.use_gyro = False
         if len(ports) > 0:
             gyro_port = ports[0]
-            self.ser = SerialPort(gyro_port)
+            self.ser = MockSerialPort(gyro_port)
             self.use_gyro = True
             self.freeze_rot_button.configure(state=tk.ACTIVE)
         self.freeze_rotation = False
@@ -328,6 +328,17 @@ class SerialPort:
                                  parity=serial.PARITY_NONE,
                                  stopbits=serial.STOPBITS_ONE)
         self.ser.write("[1D100\r".encode('utf-8'))
+
+
+class MockSerialPort:
+
+    @staticmethod
+    def find_available_ports():
+        return [-44]
+
+    def __init__(self, port_id):
+        if port_id != -44:
+            raise AttributeError("Not consistently using Mock")
 
 
 if __name__ == '__main__':
