@@ -39,7 +39,12 @@ class Splash(tk.Toplevel):
         self.tk_image = ImageTk.PhotoImage(image)
         tk.Label(self, image=self.tk_image, bd=0).pack()
 
-        SplashLabel(self, text="Loading...").pack()
+        self.message_label = SplashLabel(self, text="Loading...")
+        self.message_label.pack()
 
         self.overrideredirect(True)
+        self.update()
+
+    def update_message(self, message: str):
+        self.message_label.configure(text=message)
         self.update()

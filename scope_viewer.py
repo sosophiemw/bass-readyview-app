@@ -36,6 +36,7 @@ class Viewer:
         self.window.title("ReadyView")  # sets window title
         self.window.minsize(700, 600)  # sets minimum dimensions of the window
 
+        splash_screen.update_message("Loading camera...")
         # Gets list of available camera indices and default to first option
         self.options = MyVideoCapture.returnCameraIndexes()
         camera_index = tkinter.StringVar()
@@ -54,6 +55,7 @@ class Viewer:
                                             self.raw_image_height))
         self.alpha = 1  # Image scalar
 
+        splash_screen.update_message("Preparing interface...")
         # set up image label
         self.image_label = tk.Label(self.window)
         self.image_label.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
@@ -113,6 +115,7 @@ class Viewer:
 
         self.fps = FrameRateCalc()
 
+        splash_screen.update_message("Finding inclinometer...")
         # Check for inclinometer
         ports = SerialPort.find_available_ports()
         self.ser = None
