@@ -1,5 +1,7 @@
 # Python Imports
+import glob
 import os
+import sys
 import threading
 import time
 import tkinter
@@ -11,6 +13,7 @@ import cv2
 import numpy as np
 import PIL.Image
 import PIL.ImageTk
+import serial
 
 # Viewer Imports
 import splash
@@ -97,12 +100,9 @@ class Viewer:
         # set up Freeze Rotation button
         self.freeze_rot_button = tk.Button(self.bottom_bar,
                                            text='FREEZE ROTATION',
-                                           command=self.freeze_rotation)
+                                           command=self.freeze_rotation_cmd,
+                                           state=tk.DISABLED)
         self.freeze_rot_button.grid(column=3, row=0)
-
-        # Remove UI elements after specified period of time
-        self.hide_function_id = self.bottom_bar.after(UI_HIDE_DELAY,
-                                                      self.hide_bottom_bar)
 
         # Bind mouse motion to showing UI
         self.window.bind("<Motion>", self.mouse_motion)
@@ -113,8 +113,24 @@ class Viewer:
 
         self.fps = FrameRateCalc()
 
+        # Check for inclinometer
+        ports = SerialPort.find_available_ports()
+        self.ser = None
+        self.use_gyro = False
+        if len(ports) > 0:
+            gyro_port = ports[0]
+            self.ser = SerialPort(gyro_port)
+            self.use_gyro = True
+            self.freeze_rot_button.configure(state=tk.ACTIVE)
+        self.freeze_rotation = False
+        self.rotation_baseline = 0
+
         splash_screen.destroy()
         self.window.deiconify()
+
+        # Remove UI elements after specified period of time
+        self.hide_function_id = self.bottom_bar.after(UI_HIDE_DELAY,
+                                                      self.hide_bottom_bar)
 
         self.update()  # called over and over to update image
         self.window.mainloop()
@@ -129,9 +145,20 @@ class Viewer:
         else:
             self.snapshot = True
 
-    def freeze_rotation(self):
-        # ToDo: Code freeze_rotation command function
-        pass
+    def freeze_rotation_cmd(self):
+        if self.freeze_rotation is True:
+            self.freeze_rot_button['text'] = "FREEZE ROTATION"
+            self.freeze_rotation = False
+        else:
+            self.freeze_rot_button['text'] = "UNFREEZE ROTATION"
+            # flushes input so only most recent data is displayed
+            self.ser.flushInput()
+            s = self.ser.readline()  # reads new input
+            data_string = s.decode("utf-8")
+            data = data_string.split(",")
+            if len(data) > 5:
+                self.rotation_baseline = int(float(data[len(data)-2]))
+            self.freeze_rotation = True
 
     def hide_bottom_bar(self):
         self.bottom_bar.place_forget()
@@ -246,6 +273,58 @@ class MyVideoCapture:
         tk_image = PIL.ImageTk.PhotoImage(image)
         image_label.configure(image=tk_image)
         image_label.image = tk_image
+
+
+class SerialPort:
+
+    @staticmethod
+    def find_available_ports():
+        """ Lists serial port names
+
+            :raises EnvironmentError:
+                On unsupported or unknown platforms
+            :returns:
+                A list of the serial ports available on the system
+        """
+        if sys.platform.startswith('win'):
+            ports = ['COM%s' % (i + 1) for i in range(256)]
+        elif sys.platform.startswith('linux') or sys.platform.startswith(
+                'cygwin'):
+            # this excludes your current terminal "/dev/tty"
+            ports = glob.glob('/dev/tty[A-Za-z]*')
+        elif sys.platform.startswith('darwin'):
+            ports = glob.glob('/dev/tty.*')
+        else:
+            raise EnvironmentError('Unsupported platform')
+
+        result = []
+        for port in ports:
+            try:
+                ser = serial.Serial(port, baudrate=115200,
+                                    bytesize=serial.EIGHTBITS,
+                                    parity=serial.PARITY_NONE,
+                                    stopbits=serial.STOPBITS_ONE,
+                                    write_timeout=5, timeout=1)
+                ser.write("[1D100\r".encode('utf-8'))
+                ser.write("[N?\r".encode('utf-8'))
+                for x in range(5):
+                    s = ser.readline()
+                    data_string = s.decode("utf-8")
+                    data = data_string.split(",")
+                    if data[0] == '>Unit Number:1\r\r\n':
+                        result.append(port)
+                ser.close()
+            except (OSError, serial.SerialException):
+                pass
+
+        return result
+
+    def __init__(self, port_id):
+        self.ser = serial.Serial(port=port_id, baudrate=115200,
+                                 bytesize=serial.EIGHTBITS,
+                                 parity=serial.PARITY_NONE,
+                                 stopbits=serial.STOPBITS_ONE)
+        self.ser.write("[1D100\r".encode('utf-8'))
 
 
 if __name__ == '__main__':
