@@ -47,7 +47,8 @@ class Viewer:
         # open video source
         self.vid = MyVideoCapture(int(camera_index.get()))
 
-        # ToDo: Add code here to change camera resolution as needed
+        # Change camera resolution as needed
+        self.vid.set_camera_image_size(1920, 1080)
 
         self.raw_image_width, self.raw_image_height = \
             self.vid.get_camera_image_size()
@@ -246,6 +247,10 @@ class MyVideoCapture:
         image_width = round(self.vid.get(cv2.CAP_PROP_FRAME_WIDTH))
         image_height = round(self.vid.get(cv2.CAP_PROP_FRAME_HEIGHT))
         return image_width, image_height
+
+    def set_camera_image_size(self, width: int, height: int):
+        self.vid.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+        self.vid.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
 
     @staticmethod
     def frame_worker(image_label, frame, raw_image_width, raw_image_height,
