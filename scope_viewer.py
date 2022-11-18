@@ -102,10 +102,14 @@ class Viewer:
         # Bind mouse motion to showing UI
         self.window.bind("<Motion>", self.mouse_motion)
 
-        splash_screen.destroy()
-        self.window.deiconify()
+        # Bind the "Configure" event to a method so that when the window size
+        #  changes, the image size can be changed.
+        self.window.bind("<Configure>", self.on_resize)
 
         self.fps = FrameRateCalc()
+
+        splash_screen.destroy()
+        self.window.deiconify()
 
         self.update()  # called over and over to update image
         self.window.mainloop()
@@ -144,6 +148,11 @@ class Viewer:
             if self.fps.add_frame():
                 print(self.fps.get_fps())
         self.window.after(DELAY, self.update)
+
+    def on_resize(self, event):
+        alpha_x = self.window.winfo_width() / self.raw_image_width
+        alpha_y = self.window.winfo_height() / self.raw_image_height
+        self.alpha = min(alpha_x, alpha_y)
 
 
 class MyVideoCapture:
