@@ -154,13 +154,7 @@ class Viewer:
             self.freeze_rotation = False
         else:
             self.freeze_rot_button['text'] = "UNFREEZE ROTATION"
-            # flushes input so only most recent data is displayed
-            self.ser.flushInput()
-            s = self.ser.readline()  # reads new input
-            data_string = s.decode("utf-8")
-            data = data_string.split(",")
-            if len(data) > 5:
-                self.rotation_baseline = int(float(data[len(data)-2]))
+            self.rotation_baseline = self.ser.get_angle()
             self.freeze_rotation = True
 
     def hide_bottom_bar(self):
@@ -177,7 +171,9 @@ class Viewer:
         ret, frame = self.vid.get_frame()
         if ret:
             temp_variable_to_send = self.temp_variable.get()
-            rotation_to_send = 0
+            ser_to_send = None
+            if self.freeze_rotation:
+                ser_to_send = self.ser
             if self.snapshot:
                 # if the snapshot button has been pressed, send the foldername
                 #   to the thread to save an image
@@ -192,7 +188,8 @@ class Viewer:
                                             self.raw_image_height,
                                             self.alpha,
                                             temp_variable_to_send,
-                                            rotation_to_send,
+                                            ser_to_send,
+                                            self.rotation_baseline,
                                             dir_name
                                             ))
             thread.start()
@@ -252,8 +249,8 @@ class MyVideoCapture:
 
     @staticmethod
     def frame_worker(image_label, frame, raw_image_width, raw_image_height,
-                     alpha=1, temp_variable=None, rotation=0,
-                     snapshot_dir_name=None):
+                     alpha=1, temp_variable=None, serial_port=None,
+                     rotation_baseline=None, snapshot_dir_name=None):
         from scope_adjust_color_temperature import adjust_color_temperature
         if temp_variable is not None:
             frame = adjust_color_temperature(frame, temp_variable)
@@ -271,8 +268,10 @@ class MyVideoCapture:
             new_x = round(raw_image_width * alpha)
             new_y = round(raw_image_height * alpha)
             image = image.resize((new_x, new_y))
-        if rotation != 0:
-            image = image.rotate(rotation, PIL.Image.NEAREST)
+        if serial_port is not None:
+            rotation_variable = serial_port.get_angle()
+            image = image.rotate(rotation_variable-rotation_baseline,
+                                 PIL.Image.NEAREST)
         tk_image = PIL.ImageTk.PhotoImage(image)
         image_label.configure(image=tk_image)
         image_label.image = tk_image
@@ -329,6 +328,17 @@ class SerialPort:
                                  stopbits=serial.STOPBITS_ONE)
         self.ser.write("[1D100\r".encode('utf-8'))
 
+    def get_angle(self):
+        # flushes input so only most recent data is displayed
+        self.ser.flushInput()
+        s = self.ser.readline()  # reads new input
+        data_string = s.decode("utf-8")
+        data = data_string.split(",")
+        if len(data) > 5:
+            return int(float(data[len(data) - 2]))
+        else:
+            raise RuntimeError("Problem with inclinomeer")
+
 
 class MockSerialPort:
 
@@ -339,6 +349,20 @@ class MockSerialPort:
     def __init__(self, port_id):
         if port_id != -44:
             raise AttributeError("Not consistently using Mock")
+        self.active = False
+        self.start_time = None
+        self.up_direction = True
+
+    def get_angle(self):
+        if self.active is False:
+            self.active = True
+            self.start_time = time.monotonic()
+        time_elapsed = time.monotonic() - self.start_time
+        if time_elapsed > 45:
+            time_elapsed = 0
+            self.start_time = time.monotonic()
+        angle = round(time_elapsed) * 2
+        return angle
 
 
 if __name__ == '__main__':
