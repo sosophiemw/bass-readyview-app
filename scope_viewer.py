@@ -1,15 +1,21 @@
 # Python Imports
+import threading
 import tkinter
 import tkinter as tk
 
 # Package Imports
 import cv2
+import numpy as np
+import PIL.Image
+import PIL.ImageTk
 
 # Viewer Imports
 import splash
+from frame_rate_calc import FrameRateCalc
 
 # Constants
 UI_HIDE_DELAY = 3000  # time, in ms, after which bottom bar will disappear
+DELAY = 15  # time, in ms, to wait before calling "update" function
 
 
 class Viewer:
@@ -33,6 +39,14 @@ class Viewer:
 
         # open video source
         self.vid = MyVideoCapture(int(camera_index.get()))
+
+        # ToDo: Add code here to change camera resolution as needed
+
+        self.raw_image_width, self.raw_image_height = \
+            self.vid.get_camera_image_size()
+        self.window.geometry("{}x{}".format(self.raw_image_width,
+                                            self.raw_image_height))
+        self.alpha = 1  # Image scalar
 
         # set up image label
         self.image_label = tk.Label(self.window)
@@ -91,6 +105,9 @@ class Viewer:
         splash_screen.destroy()
         self.window.deiconify()
 
+        self.fps = FrameRateCalc()
+
+        self.update()  # called over and over to update image
         self.window.mainloop()
 
     def take_snapshot(self):
@@ -109,6 +126,24 @@ class Viewer:
         self.bottom_bar.place(relx=0.5, rely=1, anchor=tk.S)
         self.hide_function_id = self.bottom_bar.after(UI_HIDE_DELAY,
                                                       self.hide_bottom_bar)
+
+    def update(self):
+        # Obtain raw frame from camera
+        ret, frame = self.vid.get_frame()
+        if ret:
+            temp_variable_to_send = self.temp_variable.get()
+            thread = threading.Thread(target=MyVideoCapture.frame_worker,
+                                      args=(self.image_label,
+                                            frame,
+                                            self.raw_image_width,
+                                            self.raw_image_height,
+                                            self.alpha,
+                                            temp_variable_to_send
+                                            ))
+            thread.start()
+            if self.fps.add_frame():
+                print(self.fps.get_fps())
+        self.window.after(DELAY, self.update)
 
 
 class MyVideoCapture:
@@ -142,6 +177,37 @@ class MyVideoCapture:
         # Release the video source when the object is destroyed
         if self.vid.isOpened():
             self.vid.release()
+
+    def get_frame(self):
+        ret = None
+        frame = None
+        if self.vid.isOpened():
+            ret, frame = self.vid.read()
+        return ret, frame
+
+    def get_camera_image_size(self):
+        image_width = round(self.vid.get(cv2.CAP_PROP_FRAME_WIDTH))
+        image_height = round(self.vid.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        return image_width, image_height
+
+    @staticmethod
+    def frame_worker(image_label, frame, raw_image_width, raw_image_height,
+                     alpha=1, temp_variable=None, rotation=0):
+        from scope_adjust_color_temperature import adjust_color_temperature
+        if temp_variable is not None:
+            frame = adjust_color_temperature(frame, temp_variable)
+        # Convert BGR, obtained by OpenCV, to RGB which is what Pillow expects
+        frame = np.flip(frame, axis=2)
+        image = PIL.Image.fromarray(frame.astype(np.uint8))
+        if not (0.98 <= alpha <= 1.02):
+            new_x = round(raw_image_width * alpha)
+            new_y = round(raw_image_height * alpha)
+            image = image.resize((new_x, new_y))
+        if rotation != 0:
+            image = image.rotate(rotation, PIL.Image.NEAREST)
+        tk_image = PIL.ImageTk.PhotoImage(image)
+        image_label.configure(image=tk_image)
+        image_label.image = tk_image
 
 
 if __name__ == '__main__':
