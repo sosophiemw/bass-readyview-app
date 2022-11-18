@@ -1,7 +1,10 @@
 # Python Imports
+import os
 import threading
+import time
 import tkinter
 import tkinter as tk
+from tkinter import filedialog, messagebox
 
 # Package Imports
 import cv2
@@ -74,6 +77,8 @@ class Viewer:
                                          text='Take Snapshot',
                                          command=self.take_snapshot)
         self.snapshot_button.grid(column=1, row=0)
+        self.directory_name = None
+        self.snapshot = False
 
         # set up temperature slider
         # adjusting the slider changes the global temperature_variable so
@@ -115,8 +120,14 @@ class Viewer:
         self.window.mainloop()
 
     def take_snapshot(self):
-        # ToDo:  Code take_snapshot command function
-        pass
+        if self.directory_name is None or self.directory_name == "":
+            self.directory_name = filedialog.askdirectory()
+        if self.directory_name is None or self.directory_name == "":
+            messagebox.showerror("Problem Saving Snapshot",
+                                 "No directory selected, "
+                                 "so no snapshot saved.")
+        else:
+            self.snapshot = True
 
     def freeze_rotation(self):
         # ToDo: Code freeze_rotation command function
@@ -136,13 +147,23 @@ class Viewer:
         ret, frame = self.vid.get_frame()
         if ret:
             temp_variable_to_send = self.temp_variable.get()
+            rotation_to_send = 0
+            if self.snapshot:
+                # if the snapshot button has been pressed, send the foldername
+                #   to the thread to save an image
+                dir_name = self.directory_name
+                self.snapshot = False
+            else:
+                dir_name = None
             thread = threading.Thread(target=MyVideoCapture.frame_worker,
                                       args=(self.image_label,
                                             frame,
                                             self.raw_image_width,
                                             self.raw_image_height,
                                             self.alpha,
-                                            temp_variable_to_send
+                                            temp_variable_to_send,
+                                            rotation_to_send,
+                                            dir_name
                                             ))
             thread.start()
             if self.fps.add_frame():
@@ -201,7 +222,8 @@ class MyVideoCapture:
 
     @staticmethod
     def frame_worker(image_label, frame, raw_image_width, raw_image_height,
-                     alpha=1, temp_variable=None, rotation=0):
+                     alpha=1, temp_variable=None, rotation=0,
+                     snapshot_dir_name=None):
         from scope_adjust_color_temperature import adjust_color_temperature
         if temp_variable is not None:
             frame = adjust_color_temperature(frame, temp_variable)
@@ -214,6 +236,11 @@ class MyVideoCapture:
             image = image.resize((new_x, new_y))
         if rotation != 0:
             image = image.rotate(rotation, PIL.Image.NEAREST)
+        if snapshot_dir_name is not None:
+            timestr = time.strftime("%Y%m%d-%H%M%S")
+            filename = "{}.png".format(timestr)
+            path_file_name = os.path.join(snapshot_dir_name, filename)
+            image.save(path_file_name)
         tk_image = PIL.ImageTk.PhotoImage(image)
         image_label.configure(image=tk_image)
         image_label.image = tk_image
