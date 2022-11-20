@@ -24,6 +24,8 @@ from frame_rate_calc import FrameRateCalc
 UI_HIDE_DELAY = 3000  # time, in ms, after which bottom bar will disappear
 DELAY = 15  # time, in ms, to wait before calling "update" function
 DIAGONAL = False  # Sets method for image sizing
+MOCK_SERIAL = True  # Sets whether to use the mock serial port.
+# Set to False if using the scope with the inclinometer
 
 
 class Viewer:
@@ -50,7 +52,7 @@ class Viewer:
         self.vid = MyVideoCapture(int(camera_index.get()))
 
         # Change camera resolution as needed
-        self.vid.set_camera_image_size(1920, 1080)
+        # self.vid.set_camera_image_size(1920, 1080)
 
         self.raw_image_width, self.raw_image_height = \
             self.vid.get_camera_image_size()
@@ -74,7 +76,7 @@ class Viewer:
         # set up video source dropdown
         self.frame1 = tk.Frame(self.bottom_bar)
         self.frame1.grid(column=0, row=0)
-        tk.Label(self.frame1, text='Select a Video Source Index:')\
+        tk.Label(self.frame1, text='Select a Video Source Index:') \
             .pack(side="top")
         self.dropdown = tkinter.OptionMenu(self.frame1, camera_index,
                                            *self.options)
@@ -93,7 +95,7 @@ class Viewer:
         # color temp can be adjusted
         self.frame2 = tk.Frame(self.bottom_bar)
         self.frame2.grid(column=2, row=0)
-        tk.Label(self.frame2, text='Adjust Color Temperature:')\
+        tk.Label(self.frame2, text='Adjust Color Temperature:') \
             .pack(side="top")
         self.temp_variable = tkinter.IntVar()
         self.slider = tk.Scale(self.frame2, from_=2000, to=10000,
@@ -120,12 +122,18 @@ class Viewer:
 
         splash_screen.update_message("Finding inclinometer...")
         # Check for inclinometer
-        ports = MockSerialPort.find_available_ports()
+        if MOCK_SERIAL:
+            ports = MockSerialPort.find_available_ports()
+        else:
+            ports = SerialPort.find_available_ports()
         self.ser = None
         self.use_gyro = False
         if len(ports) > 0:
             gyro_port = ports[0]
-            self.ser = MockSerialPort(gyro_port)
+            if MOCK_SERIAL:
+                self.ser = MockSerialPort(gyro_port)
+            else:
+                self.ser = SerialPort(gyro_port)
             self.use_gyro = True
             self.freeze_rot_button.configure(state=tk.ACTIVE)
         self.freeze_rotation = False
@@ -209,8 +217,8 @@ class Viewer:
             # sets the width to the length of the diagonal so there is nothing
             # being cut off
             self.alpha = math.sqrt(
-                self.window.winfo_width()**2 + self.window.winfo_width()**2) \
-                         / self.raw_image_height
+                self.window.winfo_width() ** 2
+                + self.window.winfo_width() ** 2) / self.raw_image_height
 
 
 class MyVideoCapture:
@@ -284,7 +292,7 @@ class MyVideoCapture:
             image = image.resize((new_x, new_y))
         if serial_port is not None:
             rotation_variable = serial_port.get_angle()
-            image = image.rotate(rotation_variable-rotation_baseline,
+            image = image.rotate(rotation_variable - rotation_baseline,
                                  PIL.Image.NEAREST)
         tk_image = PIL.ImageTk.PhotoImage(image)
         image_label.configure(image=tk_image)
@@ -351,7 +359,7 @@ class SerialPort:
         if len(data) > 5:
             return int(float(data[len(data) - 2]))
         else:
-            raise RuntimeError("Problem with inclinomeer")
+            raise RuntimeError("Problem with inclinometer")
 
 
 class MockSerialPort:
