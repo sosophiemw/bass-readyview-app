@@ -1,5 +1,6 @@
 # Python Imports
 import glob
+import math
 import os
 import sys
 import threading
@@ -22,6 +23,7 @@ from frame_rate_calc import FrameRateCalc
 # Constants
 UI_HIDE_DELAY = 3000  # time, in ms, after which bottom bar will disappear
 DELAY = 15  # time, in ms, to wait before calling "update" function
+DIAGONAL = False  # Sets method for image sizing
 
 
 class Viewer:
@@ -199,9 +201,16 @@ class Viewer:
         self.window.after(DELAY, self.update)
 
     def on_resize(self, event):
-        alpha_x = self.window.winfo_width() / self.raw_image_width
-        alpha_y = self.window.winfo_height() / self.raw_image_height
-        self.alpha = min(alpha_x, alpha_y)
+        if DIAGONAL is False:
+            alpha_x = self.window.winfo_width() / self.raw_image_width
+            alpha_y = self.window.winfo_height() / self.raw_image_height
+            self.alpha = min(alpha_x, alpha_y)
+        else:
+            # sets the width to the length of the diagonal so there is nothing
+            # being cut off
+            self.alpha = math.sqrt(
+                self.window.winfo_width()**2 + self.window.winfo_width()**2) \
+                         / self.raw_image_height
 
 
 class MyVideoCapture:
