@@ -141,6 +141,7 @@ class Viewer:
 
         splash_screen.destroy()
         self.window.deiconify()
+        self.update_id = None  # Variable to hold handle number of update call
 
         # Remove UI elements after specified period of time
         self.hide_function_id = self.bottom_bar.after(UI_HIDE_DELAY,
@@ -203,6 +204,7 @@ class Viewer:
                                             self.rotation_baseline,
                                             dir_name
                                             ))
+            thread.daemon = True  # Will cause thread to end when GUI ends
             thread.start()
             if self.fps.add_frame():
                 print(self.fps.get_fps())
