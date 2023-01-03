@@ -40,6 +40,9 @@ class Viewer:
         self.window.title("ReadyView")  # sets window title
         self.window.minsize(700, 600)  # sets minimum dimensions of the window
 
+        splash_screen.update_message("Loading settings...")
+        self.resolutions = self.load_settings()
+
         splash_screen.update_message("Loading camera...")
         # Gets list of available camera indices and default to first option
         self.options = MyVideoCapture.returnCameraIndexes()
@@ -52,7 +55,8 @@ class Viewer:
         self.vid = MyVideoCapture(int(camera_index.get()))
 
         # Change camera resolution as needed
-        # self.vid.set_camera_image_size(1920, 1080)
+        self.vid.set_camera_image_size(self.resolutions[0][0],
+                                       self.resolutions[0][1])
 
         self.raw_image_width, self.raw_image_height = \
             self.vid.get_camera_image_size()
@@ -149,6 +153,17 @@ class Viewer:
 
         self.update()  # called over and over to update image
         self.window.mainloop()
+
+    @staticmethod
+    def load_settings():
+        with open("resources/settings.txt", 'r') as in_file:
+            lines = in_file.readlines()
+        resolutions = []
+        for line in lines:
+            if line.find('x') >= 0:
+                x, y = line.strip(" \n").split('x')
+                resolutions.append((x, y))
+        return resolutions
 
     def take_snapshot(self):
         if self.directory_name is None or self.directory_name == "":
