@@ -256,11 +256,25 @@ class Viewer:
                                  font=("Arial", 24))
         warning_label.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
         self.window.update()
+        current_resolution = self.vid.get_camera_image_size()
         new_resolution_string = self.resolution_string_choice.get()
         x, y = new_resolution_string.split('x')
-        self.vid.__del__()
-        self.vid = MyVideoCapture(int(self.camera_index.get()))
-        self.vid.set_camera_image_size(int(x), int(y))
+        x, y = int(x), int(y)
+        while True:
+            self.vid.__del__()
+            self.vid = MyVideoCapture(int(self.camera_index.get()))
+            self.vid.set_camera_image_size(x, y)
+            updated_resolution = self.vid.get_camera_image_size()
+            if updated_resolution[0] != x or updated_resolution[1] != y:
+                warning_label.configure(text="{}x{} unavailable.  Returning to {}x{}"
+                                        .format(x, y, current_resolution[0],
+                                                current_resolution[1]))
+                self.window.update()
+                x = current_resolution[0]
+                y = current_resolution[1]
+                self.resolution_string_choice.set("{}x{}".format(x, y))
+            else:
+                break
         # self.alpha = 1.0
         self.raw_image_width, self.raw_image_height = \
             self.vid.get_camera_image_size()
