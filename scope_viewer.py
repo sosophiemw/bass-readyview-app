@@ -41,18 +41,20 @@ class Viewer:
         self.window.minsize(700, 600)  # sets minimum dimensions of the window
 
         splash_screen.update_message("Loading settings...")
-        self.resolutions = self.load_settings()
+        self.resolution_strings = []
+        self.resolutions = []
+        self.load_settings()
 
         splash_screen.update_message("Loading camera...")
         # Gets list of available camera indices and default to first option
         self.options = MyVideoCapture.returnCameraIndexes()
-        camera_index = tkinter.StringVar()
-        camera_index.set(str(self.options[0]))
+        self.camera_index = tkinter.StringVar()
+        self.camera_index.set(str(self.options[0]))
         # ToDo: rite code to recognize change in camera_index selection,
         #       close existing video connection, and open a new one
 
         # open video source
-        self.vid = MyVideoCapture(int(camera_index.get()))
+        self.vid = MyVideoCapture(int(self.camera_index.get()))
 
         # Change camera resolution as needed
         self.vid.set_camera_image_size(self.resolutions[0][0],
@@ -76,21 +78,34 @@ class Viewer:
         self.bottom_bar.columnconfigure(1, weight=1)
         self.bottom_bar.columnconfigure(2, weight=1)
         self.bottom_bar.columnconfigure(3, weight=1)
+        self.bottom_bar.columnconfigure(4, weight=1)
 
         # set up video source dropdown
         self.frame1 = tk.Frame(self.bottom_bar)
         self.frame1.grid(column=0, row=0)
         tk.Label(self.frame1, text='Select a Video Source Index:') \
             .pack(side="top")
-        self.dropdown = tkinter.OptionMenu(self.frame1, camera_index,
+        self.dropdown = tkinter.OptionMenu(self.frame1, self.camera_index,
                                            *self.options)
         self.dropdown.pack(side="bottom")
+
+        # set up resolution dropdown
+        self.resolution_string_choice = tk.StringVar()
+        self.resolution_string_choice.set(self.resolution_strings[0])
+        self.frame_resolution = tk.Frame(self.bottom_bar)
+        self.frame_resolution.grid(column=1, row=0)
+        tk.Label(self.frame_resolution, text="Camera Resolution:")\
+            .pack(side="top")
+        self.resolution_dropdown = tkinter.OptionMenu(
+            self.frame_resolution, self.resolution_string_choice,
+            *self.resolution_strings, command=self.resolution_change_cmd)
+        self.resolution_dropdown.pack(side="bottom")
 
         # set up snapshot button
         self.snapshot_button = tk.Button(self.bottom_bar,
                                          text='Take Snapshot',
                                          command=self.take_snapshot)
-        self.snapshot_button.grid(column=1, row=0)
+        self.snapshot_button.grid(column=2, row=0)
         self.directory_name = None
         self.snapshot = False
 
@@ -98,7 +113,7 @@ class Viewer:
         # adjusting the slider changes the global temperature_variable so
         # color temp can be adjusted
         self.frame2 = tk.Frame(self.bottom_bar)
-        self.frame2.grid(column=2, row=0)
+        self.frame2.grid(column=3, row=0)
         tk.Label(self.frame2, text='Adjust Color Temperature:') \
             .pack(side="top")
         self.temp_variable = tkinter.IntVar()
@@ -113,7 +128,7 @@ class Viewer:
                                            text='FREEZE ROTATION',
                                            command=self.freeze_rotation_cmd,
                                            state=tk.DISABLED)
-        self.freeze_rot_button.grid(column=3, row=0)
+        self.freeze_rot_button.grid(column=4, row=0)
 
         # Bind mouse motion to showing UI
         self.window.bind("<Motion>", self.mouse_motion)
@@ -154,16 +169,14 @@ class Viewer:
         self.update()  # called over and over to update image
         self.window.mainloop()
 
-    @staticmethod
-    def load_settings():
+    def load_settings(self):
         with open("resources/settings.txt", 'r') as in_file:
             lines = in_file.readlines()
-        resolutions = []
         for line in lines:
             if line.find('x') >= 0:
                 x, y = line.strip(" \n").split('x')
-                resolutions.append((x, y))
-        return resolutions
+                self.resolutions.append((int(x), int(y)))
+                self.resolution_strings.append(line.strip(" \n"))
 
     def take_snapshot(self):
         if self.directory_name is None or self.directory_name == "":
@@ -236,6 +249,13 @@ class Viewer:
             self.alpha = math.sqrt(
                 self.window.winfo_width() ** 2
                 + self.window.winfo_width() ** 2) / self.raw_image_height
+
+    def resolution_change_cmd(self, event):
+        new_resolution_string = self.resolution_string_choice.get()
+        x, y = new_resolution_string.split('x')
+        self.vid.__del__()
+        self.vid = MyVideoCapture(int(self.camera_index.get()))
+        self.vid.set_camera_image_size(int(x), int(y))
 
 
 class MyVideoCapture:
