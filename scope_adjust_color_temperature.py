@@ -30,7 +30,7 @@ def adjust_color_temperature(frame,  temp_variable):
     weight_array_temp[2] *= temp_array[0]
 
     mod_weight_array = (255 * weight_array_temp) / (np.max(frame))
-    frame[:, :640, 0] *= mod_weight_array[0]
-    frame[:, :640, 1] *= mod_weight_array[1]
-    frame[:, :640, 2] *= mod_weight_array[2]
+    frame[:, :, 0] *= mod_weight_array[0]
+    frame[:, :, 1] *= mod_weight_array[1]
+    frame[:, :, 2] *= mod_weight_array[2]
     return frame
