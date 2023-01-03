@@ -249,7 +249,6 @@ class Viewer:
             self.alpha = math.sqrt(
                 self.window.winfo_width() ** 2
                 + self.window.winfo_width() ** 2) / self.raw_image_height
-        print(self.alpha)
 
     def resolution_change_cmd(self, event):
         warning_label = tk.Label(self.window,
