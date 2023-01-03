@@ -365,7 +365,10 @@ class MyVideoCapture:
             new_y = round(raw_image_height * alpha)
             image = image.resize((new_x, new_y))
         if serial_port is not None:
-            rotation_variable = serial_port.get_angle()
+            try:
+                rotation_variable = serial_port.get_angle()
+            except RuntimeError:
+                return
             image = image.rotate(rotation_variable - rotation_baseline,
                                  PIL.Image.NEAREST)
         tk_image = PIL.ImageTk.PhotoImage(image)
