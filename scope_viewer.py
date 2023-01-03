@@ -173,7 +173,21 @@ class Viewer:
         with open("resources/settings.txt", 'r') as in_file:
             lines = in_file.readlines()
         for line in lines:
-            if line.find('x') >= 0:
+            if line.find('MOCK_SERIAL') >= 0:
+                splits = line.strip(" \n").split('=')
+                global MOCK_SERIAL
+                if splits[1].upper() == "TRUE":
+                    MOCK_SERIAL = True
+                else:
+                    MOCK_SERIAL = False
+            elif line.find('DIAGONAL') >= 0:
+                splits = line.strip(" \n").split('=')
+                global DIAGONAL
+                if splits[1].upper() == "TRUE":
+                    DIAGONAL = True
+                else:
+                    DIAGONAL = False
+            elif line.find('x') >= 0:
                 x, y = line.strip(" \n").split('x')
                 self.resolutions.append((int(x), int(y)))
                 self.resolution_strings.append(line.strip(" \n"))
