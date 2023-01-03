@@ -251,11 +251,17 @@ class Viewer:
                 + self.window.winfo_width() ** 2) / self.raw_image_height
 
     def resolution_change_cmd(self, event):
+        warning_label = tk.Label(self.window,
+                                 text="Hold for resolution change",
+                                 font=("Arial", 24))
+        warning_label.place(x=100, y=100)
+        self.window.update()
         new_resolution_string = self.resolution_string_choice.get()
         x, y = new_resolution_string.split('x')
         self.vid.__del__()
         self.vid = MyVideoCapture(int(self.camera_index.get()))
         self.vid.set_camera_image_size(int(x), int(y))
+        warning_label.place_forget()
 
 
 class MyVideoCapture:
