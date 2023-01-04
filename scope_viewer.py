@@ -80,6 +80,7 @@ class Viewer:
         self.bottom_bar.columnconfigure(2, weight=1)
         self.bottom_bar.columnconfigure(3, weight=1)
         self.bottom_bar.columnconfigure(4, weight=1)
+        self.bottom_bar.columnconfigure(5, weight=1)
 
         # set up video source dropdown
         self.frame1 = tk.Frame(self.bottom_bar)
@@ -131,6 +132,15 @@ class Viewer:
                                            command=self.freeze_rotation_cmd,
                                            state=tk.DISABLED)
         self.freeze_rot_button.grid(column=4, row=0)
+
+        # set up resize checkbox
+        self.resize_select = tk.BooleanVar()
+        self.resize_checkbtn = tk.Checkbutton(self.bottom_bar,
+                                              text="Resize",
+                                              variable=self.resize_select,
+                                              onvalue=True,
+                                              offvalue=False)
+        self.resize_checkbtn.grid(column=5, row=0)
 
         # Bind mouse motion to showing UI
         self.window.bind("<Motion>", self.mouse_motion)
