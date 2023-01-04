@@ -256,12 +256,16 @@ class Viewer:
                 self.snapshot = False
             else:
                 dir_name = None
+            if self.resize_select.get():
+                alpha_to_send = self.alpha
+            else:
+                alpha_to_send = 1.0
             thread = threading.Thread(target=MyVideoCapture.frame_worker,
                                       args=(self.image_label,
                                             frame,
                                             self.raw_image_width,
                                             self.raw_image_height,
-                                            self.alpha,
+                                            alpha_to_send,
                                             temp_variable_to_send,
                                             ser_to_send,
                                             self.rotation_baseline,
