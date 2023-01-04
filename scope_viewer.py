@@ -43,6 +43,7 @@ class Viewer:
         splash_screen.update_message("Loading settings...")
         self.resolution_strings = []
         self.resolutions = []
+        self.DO_TEMP = False
         self.load_settings()
 
         splash_screen.update_message("Loading camera...")
@@ -187,6 +188,12 @@ class Viewer:
                     DIAGONAL = True
                 else:
                     DIAGONAL = False
+            elif line.find('TEMPERATURE') >= 0:
+                splits = line.strip(" \n").split('=')
+                if splits[1].upper() == "TRUE":
+                    self.DO_TEMP = True
+                else:
+                    self.DO_TEMP = False
             elif line.find('x') >= 0:
                 x, y = line.strip(" \n").split('x')
                 self.resolutions.append((int(x), int(y)))
@@ -224,7 +231,10 @@ class Viewer:
         # Obtain raw frame from camera
         ret, frame = self.vid.get_frame()
         if ret:
-            temp_variable_to_send = self.temp_variable.get()
+            if self.DO_TEMP:
+                temp_variable_to_send = self.temp_variable.get()
+            else:
+                temp_variable_to_send = None
             ser_to_send = None
             if self.freeze_rotation:
                 ser_to_send = self.ser
