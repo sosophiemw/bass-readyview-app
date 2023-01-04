@@ -251,6 +251,9 @@ class Viewer:
 
     def update(self):
         # Obtain raw frame from camera
+        if self.run_select.get() is False:
+            self.window.after(DELAY, self.update)
+            return
         ret, frame = self.vid.get_frame()
         if ret:
             if self.DO_TEMP:
