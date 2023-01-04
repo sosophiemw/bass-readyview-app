@@ -134,13 +134,24 @@ class Viewer:
         self.freeze_rot_button.grid(column=4, row=0)
 
         # set up resize checkbox
+        self.frame_btns = tk.Frame(self.bottom_bar)
+        self.frame_btns.grid(column=5, row=0)
         self.resize_select = tk.BooleanVar()
-        self.resize_checkbtn = tk.Checkbutton(self.bottom_bar,
+        self.resize_select.set(True)
+        self.resize_checkbtn = tk.Checkbutton(self.frame_btns,
                                               text="Resize",
                                               variable=self.resize_select,
                                               onvalue=True,
                                               offvalue=False)
-        self.resize_checkbtn.grid(column=5, row=0)
+        self.resize_checkbtn.pack(side="top")
+        self.run_select = tk.BooleanVar()
+        self.run_select.set(True)
+        self.run_checkbtn =  tk.Checkbutton(self.frame_btns,
+                                            text="Run",
+                                            variable=self.run_select,
+                                            onvalue=True,
+                                            offvalue=False)
+        self.run_checkbtn.pack(side="bottom")
 
         # Bind mouse motion to showing UI
         self.window.bind("<Motion>", self.mouse_motion)
