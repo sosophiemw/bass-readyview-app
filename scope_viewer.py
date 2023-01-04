@@ -2,6 +2,7 @@
 import glob
 import math
 import os
+import platform
 import sys
 import threading
 import time
@@ -518,4 +519,5 @@ class MockSerialPort:
 
 
 if __name__ == '__main__':
+    print("Python version: {}".format(platform.python_version()))
     Viewer()
