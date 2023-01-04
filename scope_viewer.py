@@ -13,6 +13,7 @@ from tkinter import filedialog, messagebox
 import cv2
 import numpy as np
 import PIL.Image
+import PIL.ImageDraw
 import PIL.ImageTk
 import serial
 
@@ -24,7 +25,7 @@ from frame_rate_calc import FrameRateCalc
 UI_HIDE_DELAY = 3000  # time, in ms, after which bottom bar will disappear
 DELAY = 15  # time, in ms, to wait before calling "update" function
 DIAGONAL = False  # Sets method for image sizing
-MOCK_SERIAL = True  # Sets whether to use the mock serial port.
+MOCK_SERIAL = False  # Sets whether to use the mock serial port.
 # Set to False if using the scope with the inclinometer
 
 
@@ -43,16 +44,16 @@ class Viewer:
         splash_screen.update_message("Loading camera...")
         # Gets list of available camera indices and default to first option
         self.options = MyVideoCapture.returnCameraIndexes()
-        camera_index = tkinter.StringVar()
-        camera_index.set(str(self.options[0]))
+        self.camera_index = tkinter.StringVar()
+        self.camera_index.set(str(self.options[0]))
         # ToDo: rite code to recognize change in camera_index selection,
         #       close existing video connection, and open a new one
 
         # open video source
-        self.vid = MyVideoCapture(int(camera_index.get()))
+        self.vid = MyVideoCapture(int(self.camera_index.get()))
 
         # Change camera resolution as needed
-        # self.vid.set_camera_image_size(1920, 1080)
+        #self.vid.set_camera_image_size(1920, 1080)
 
         self.raw_image_width, self.raw_image_height = \
             self.vid.get_camera_image_size()
@@ -72,21 +73,27 @@ class Viewer:
         self.bottom_bar.columnconfigure(1, weight=1)
         self.bottom_bar.columnconfigure(2, weight=1)
         self.bottom_bar.columnconfigure(3, weight=1)
+        self.bottom_bar.columnconfigure(4, weight=1)
 
         # set up video source dropdown
         self.frame1 = tk.Frame(self.bottom_bar)
         self.frame1.grid(column=0, row=0)
         tk.Label(self.frame1, text='Select a Video Source Index:') \
             .pack(side="top")
-        self.dropdown = tkinter.OptionMenu(self.frame1, camera_index,
+        self.dropdown = tkinter.OptionMenu(self.frame1, self.camera_index,
                                            *self.options)
         self.dropdown.pack(side="bottom")
+
+        self.refresh_cameras = tk.Button(self.bottom_bar,
+                                         text='Refresh Camera List',
+                                         command=self.refresh_cameras)
+        self.refresh_cameras.grid(column=1, row=0)
 
         # set up snapshot button
         self.snapshot_button = tk.Button(self.bottom_bar,
                                          text='Take Snapshot',
                                          command=self.take_snapshot)
-        self.snapshot_button.grid(column=1, row=0)
+        self.snapshot_button.grid(column=2, row=0)
         self.directory_name = None
         self.snapshot = False
 
@@ -94,7 +101,7 @@ class Viewer:
         # adjusting the slider changes the global temperature_variable so
         # color temp can be adjusted
         self.frame2 = tk.Frame(self.bottom_bar)
-        self.frame2.grid(column=2, row=0)
+        self.frame2.grid(column=3, row=0)
         tk.Label(self.frame2, text='Adjust Color Temperature:') \
             .pack(side="top")
         self.temp_variable = tkinter.IntVar()
@@ -109,7 +116,7 @@ class Viewer:
                                            text='FREEZE ROTATION',
                                            command=self.freeze_rotation_cmd,
                                            state=tk.DISABLED)
-        self.freeze_rot_button.grid(column=3, row=0)
+        self.freeze_rot_button.grid(column=4, row=0)
 
         # Bind mouse motion to showing UI
         self.window.bind("<Motion>", self.mouse_motion)
@@ -150,6 +157,17 @@ class Viewer:
         self.update()  # called over and over to update image
         self.window.mainloop()
 
+    def refresh_cameras(self): #BETTER WAY??
+        if self.vid.vid.isOpened():
+            self.vid.vid.release()
+        self.optionss=MyVideoCapture.returnCameraIndexes()
+        self.dropdown.destroy()
+        self.dropdown = tkinter.OptionMenu(self.frame1, self.camera_index,
+                                           *self.optionss)
+        self.dropdown.pack(side="bottom")
+        self.vid = MyVideoCapture(int(self.camera_index.get()))
+        print("refresh")
+        
     def take_snapshot(self):
         if self.directory_name is None or self.directory_name == "":
             self.directory_name = filedialog.askdirectory()
@@ -180,7 +198,7 @@ class Viewer:
 
     def update(self):
         # Obtain raw frame from camera
-        ret, frame = self.vid.get_frame()
+        ret, frame = self.vid.get_frame(int(self.camera_index.get()))
         if ret:
             temp_variable_to_send = self.temp_variable.get()
             ser_to_send = None
@@ -193,7 +211,7 @@ class Viewer:
                 self.snapshot = False
             else:
                 dir_name = None
-            thread = threading.Thread(target=MyVideoCapture.frame_worker,
+            self.thread = threading.Thread(target=MyVideoCapture.frame_worker,
                                       args=(self.image_label,
                                             frame,
                                             self.raw_image_width,
@@ -204,10 +222,13 @@ class Viewer:
                                             self.rotation_baseline,
                                             dir_name
                                             ))
-            thread.daemon = True  # Will cause thread to end when GUI ends
-            thread.start()
+            self.thread.daemon = True  # Will cause thread to end when GUI ends
+            self.thread.start()
             if self.fps.add_frame():
                 print(self.fps.get_fps())
+        else:
+            self.refresh_cameras()
+            self.camera_index.set(str(self.options[0]))
         self.window.after(DELAY, self.update)
 
     def on_resize(self, event):
@@ -215,6 +236,7 @@ class Viewer:
             alpha_x = self.window.winfo_width() / self.raw_image_width
             alpha_y = self.window.winfo_height() / self.raw_image_height
             self.alpha = min(alpha_x, alpha_y)
+            MyVideoCapture.createMask(round(self.raw_image_height * self.alpha),round(self.raw_image_width * self.alpha))
         else:
             # sets the width to the length of the diagonal so there is nothing
             # being cut off
@@ -224,7 +246,7 @@ class Viewer:
 
 
 class MyVideoCapture:
-
+    mask=None;
     @staticmethod
     def returnCameraIndexes():
         # Returns potential video sources
@@ -232,9 +254,7 @@ class MyVideoCapture:
         index = 0
         arr = []
         i = 10
-
         cap = cv2.VideoCapture()
-
         while i > 0:
             if cap.open(index, cv2.CAP_DSHOW):
                 arr.append(index)
@@ -255,9 +275,16 @@ class MyVideoCapture:
         if self.vid.isOpened():
             self.vid.release()
 
-    def get_frame(self):
+    def get_frame(self, camera_index):
         ret = None
         frame = None
+        if(camera_index!=self.vid_source): 
+            if self.vid.isOpened():
+                self.vid.release()
+            self.vid_source=camera_index
+            self.vid = cv2.VideoCapture(camera_index)
+            if not self.vid.isOpened():
+                raise ValueError("Unable to open video source", camera_index)
         if self.vid.isOpened():
             ret, frame = self.vid.read()
         return ret, frame
@@ -270,6 +297,13 @@ class MyVideoCapture:
     def set_camera_image_size(self, width: int, height: int):
         self.vid.set(cv2.CAP_PROP_FRAME_WIDTH, width)
         self.vid.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+
+    @staticmethod
+    def createMask(height, width):
+        size=[width, height]
+        MyVideoCapture.mask = PIL.Image.new("L", size, 0)
+        draw = PIL.ImageDraw.Draw(MyVideoCapture.mask)
+        draw.ellipse(((width-height)/2, 0, (width+height)/2, height), fill=255)
 
     @staticmethod
     def frame_worker(image_label, frame, raw_image_width, raw_image_height,
@@ -296,6 +330,9 @@ class MyVideoCapture:
             rotation_variable = serial_port.get_angle()
             image = image.rotate(rotation_variable - rotation_baseline,
                                  PIL.Image.NEAREST)
+            if(MyVideoCapture.mask is None):
+                MyVideoCapture.createMask(round(raw_image_height * alpha),round(raw_image_width * alpha))
+            image.putalpha(MyVideoCapture.mask)
         tk_image = PIL.ImageTk.PhotoImage(image)
         image_label.configure(image=tk_image)
         image_label.image = tk_image
@@ -342,7 +379,6 @@ class SerialPort:
                 ser.close()
             except (OSError, serial.SerialException):
                 pass
-
         return result
 
     def __init__(self, port_id):
@@ -358,10 +394,12 @@ class SerialPort:
         s = self.ser.readline()  # reads new input
         data_string = s.decode("utf-8")
         data = data_string.split(",")
+        #print(data)
         if len(data) > 5:
-            return int(float(data[len(data) - 2]))
-        else:
-            raise RuntimeError("Problem with inclinometer")
+            try:
+                return int(float(data[len(data) - 2]))
+            except:
+                print("invalid data")
 
 
 class MockSerialPort:
