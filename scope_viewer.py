@@ -87,7 +87,8 @@ class Viewer:
         tk.Label(self.frame1, text='Select a Video Source Index:') \
             .pack(side="top")
         self.dropdown = tkinter.OptionMenu(self.frame1, self.camera_index,
-                                           *self.options)
+                                           *self.options,
+                                           command=self.camera_change_cmd)
         self.dropdown.pack(side="bottom")
 
         # set up resolution dropdown
@@ -300,6 +301,20 @@ class Viewer:
             else:
                 break
         # self.alpha = 1.0
+        self.raw_image_width, self.raw_image_height = \
+            self.vid.get_camera_image_size()
+        warning_label.place_forget()
+
+    def camera_change_cmd(self, event):
+        warning_label = tk.Label(self.window,
+                                 text="Hold for camera change",
+                                 font=("Arial", 24))
+        warning_label.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
+        self.window.update()
+        self.vid.__del__()
+        self.resolution_string_choice.set("{}x{}".format(640, 480))
+        self.vid = MyVideoCapture(int(self.camera_index.get()))
+        self.vid.set_camera_image_size(640, 480)
         self.raw_image_width, self.raw_image_height = \
             self.vid.get_camera_image_size()
         warning_label.place_forget()
